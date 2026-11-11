@@ -214,8 +214,8 @@
   {
    "name": "site_marble",
    "material": "marble",
-   "verts": 2871,
-   "tris": 3011,
+   "verts": 2079,
+   "tris": 1823,
    "file": "data/site_marble.bin"
   },
   {

@@ -384,21 +384,26 @@ def wallring(poly, z0, z1, mat):
         for ring in [pp.exterior] + list(pp.interiors):
             c = list(ring.coords)
             for p, r in zip(c[:-1], c[1:]): S.add([(p[0], p[1], FLAT + z0), (r[0], r[1], FLAT + z0), (r[0], r[1], FLAT + z1), (p[0], p[1], FLAT + z1)], Q, mat=mat)
-nplant = 0
+nplant = 0; ncube = 0
 for g in (grass.geoms if hasattr(grass, "geoms") else [grass]):
     if g.geom_type != "Polygon" or g.area < 8: continue
     if g.area < 1300:                                                       # raised planter with a white marble seat wall
         inner = g.buffer(-0.4, join_style=2); nplant += 1
         if inner.is_empty: continue
         flat(inner, 0.42, GRASS); rim = g.difference(inner); flat(rim, 0.5, MARBLE); wallring(rim, 0.02, 0.5, MARBLE)
-        c = list(g.minimum_rotated_rectangle.exterior.coords)                         # a row of white marble blocks along each long side
+        # white marble blocks: only in the strip south-east of the tower, one row on each side of the walk between the two chains of planters
+        cx, cy = g.centroid.x - TX, g.centroid.y - TY
+        if not (-22 < cx < 58 and -118 < cy < -15 and g.area < 700): continue
+        ax = (-0.565, -0.825); nrm = (0.825, -0.565); mid = (TX + 25 + nrm[0] * 13.9, TY - 28 + nrm[1] * 13.9)       # centre line of the walk, read off the aerial photo
+        def off_axis(q): return (q[0] - mid[0]) * nrm[0] + (q[1] - mid[1]) * nrm[1]
+        c = list(g.minimum_rotated_rectangle.exterior.coords)
         sides = sorted([(math.dist(c[i], c[i + 1]), c[i], c[i + 1]) for i in range(4)], reverse=True)[:2]
-        for d, p, r in sides:
-            ux, uy = (r[0] - p[0]) / d, (r[1] - p[1]) / d; nx, ny = uy, -ux
-            if g.contains(Point((p[0] + r[0]) / 2 + nx, (p[1] + r[1]) / 2 + ny)): nx, ny = -nx, -ny
-            for i in range(int(d / 3.2) + 1):
-                q = (p[0] + ux * (0.6 + i * 3.2) + nx * 2.4, p[1] + uy * (0.6 + i * 3.2) + ny * 2.4)
-                if pland.contains(Point(q)) and not drive.buffer(3).contains(Point(q)) and grass.distance(Point(q)) > 0.8 and lawn.distance(Point(q)) > 9: obox(S, q, (ux, uy), 0.5, 0.5, FLAT + 0.02, FLAT + 0.48, (1, 1, 1), MARBLE)
+        d, p, r = min(sides, key=lambda sd: abs(off_axis(((sd[1][0] + sd[2][0]) / 2, (sd[1][1] + sd[2][1]) / 2))))
+        ux, uy = (r[0] - p[0]) / d, (r[1] - p[1]) / d; nx, ny = uy, -ux
+        if g.contains(Point((p[0] + r[0]) / 2 + nx, (p[1] + r[1]) / 2 + ny)): nx, ny = -nx, -ny
+        for i in range(int(d / 2.6) + 1):
+            q = (p[0] + ux * (0.4 + i * 2.6) + nx * 1.8, p[1] + uy * (0.4 + i * 2.6) + ny * 1.8)
+            if pland.contains(Point(q)) and grass.distance(Point(q)) > 0.8: obox(S, q, (ux, uy), 0.5, 0.5, FLAT + 0.02, FLAT + 0.48, (1, 1, 1), MARBLE); ncube += 1
     else:                                                                    # big lawns lie flush with a thin kerb
         flat(g, 0.10, GRASS); flat(g.boundary.buffer(0.2).intersection(land), 0.16, CURB)
 # the tower lawn: grass, a beaten path round the base, two paths out to the ring, a paved way to the door
@@ -483,6 +488,6 @@ for (x, y) in pines:
         WEB_CLUMPS.append([round(bx, 2), round(by, 2), round(bz + rzz * 0.15, 2), round(rx, 2), round(rzz, 2)] + [round(c, 3) for c in gk])
         a0 = np.array([tx_, ty_, tz_ - 0.8]); b0 = np.array([bx, by, bz - rzz * 0.4]); sd = np.cross(b0 - a0, (0, 0, 1.0)); sd = sd / (np.linalg.norm(sd) + 1e-6) * 0.09
         S.add([a0 - sd, a0 + sd, b0 + sd * 0.5, b0 - sd * 0.5, a0 + (0, 0, 0.16), b0 + (0, 0, 0.1)], [(0, 1, 2), (0, 2, 3), (0, 3, 5), (0, 5, 4), (1, 4, 5), (1, 5, 2)], col=(1, 1, 1), mat=BARK)
-S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("planters", nplant); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
+S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("planters", nplant, "cubes", ncube); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
 
 json.dump({"trees": WEB_TREES, "clumps": WEB_CLUMPS, "tower": [TX, TY, FLAT], "bounds": [x0, y0, x1, y1]}, open(f"{root}/data/web_trees.json", "w"))
