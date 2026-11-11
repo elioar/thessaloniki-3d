@@ -291,7 +291,7 @@ tm.save("trees"); print("trees", len(spots))
 
 # ================= the tower's surroundings (within 260 m) =================
 RS = 260.0; disc = Point(TX, TY).buffer(RS, 64); land = disc.difference(sea); S = Mesh()
-GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE, MARK, WALK, TERRA, MARBLE, DIRT = range(17)
+GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE, MARK, WALK, TERRA, MARBLE, DIRT, STELE = range(18)
 def flat(poly, z, mat, col=(1, 1, 1)):
     for pp in (poly.geoms if hasattr(poly, "geoms") else [poly]):
         if pp.geom_type == "Polygon" and pp.area > 0.3:
@@ -308,7 +308,8 @@ R_IN, R_OUT, NP, SPAN, R_BACK = 24.0, 31.0, 10, math.radians(220), 17.5
 A0 = math.radians(225) - SPAN / 2; ANG = [A0 + SPAN * i / NP for i in range(NP + 1)]
 def rp(r, a): return (TX + r * math.cos(a), TY + r * math.sin(a))
 back = [rp(R_BACK, A0 + SPAN + (2 * math.pi - SPAN) * i / 12) for i in range(1, 12)]
-lawn = Polygon([rp(R_IN, a) for a in ANG] + back); ringpoly = Polygon([rp(R_OUT, a) for a in ANG] + [rp(R_IN, a) for a in ANG[::-1]])
+lawn = Polygon([rp(R_IN - 2.4, a) for a in ANG] + back); gravel = Polygon([rp(R_IN, a) for a in ANG] + [rp(R_IN - 2.4, a) for a in ANG[::-1]])
+ringpoly = Polygon([rp(R_OUT, a) for a in ANG] + [rp(R_IN, a) for a in ANG[::-1]])
 lawn = lawn.difference(drive.buffer(3.0)); ringpoly = ringpoly.difference(drive.buffer(3.0))
 walk = drive.buffer(2.6, join_style=1).difference(drive).intersection(land).difference(bu.buffer(0.1))      # raised pavements beside every road
 grass = unary_union(greens).intersection(land).difference(drive.buffer(2.6)).difference(lawn.buffer(8))
@@ -384,26 +385,26 @@ def wallring(poly, z0, z1, mat):
         for ring in [pp.exterior] + list(pp.interiors):
             c = list(ring.coords)
             for p, r in zip(c[:-1], c[1:]): S.add([(p[0], p[1], FLAT + z0), (r[0], r[1], FLAT + z0), (r[0], r[1], FLAT + z1), (p[0], p[1], FLAT + z1)], Q, mat=mat)
-nplant = 0; ncube = 0
+nplant = 0; ndec = 0; drnd = random.Random(21)
 for g in (grass.geoms if hasattr(grass, "geoms") else [grass]):
     if g.geom_type != "Polygon" or g.area < 8: continue
     if g.area < 1300:                                                       # raised planter with a white marble seat wall
         inner = g.buffer(-0.4, join_style=2); nplant += 1
         if inner.is_empty: continue
         flat(inner, 0.42, GRASS); rim = g.difference(inner); flat(rim, 0.5, MARBLE); wallring(rim, 0.02, 0.5, MARBLE)
-        # white marble blocks: only in the strip south-east of the tower, one row on each side of the walk between the two chains of planters
         cx, cy = g.centroid.x - TX, g.centroid.y - TY
-        if not (-22 < cx < 58 and -118 < cy < -15 and g.area < 700): continue
-        ax = (-0.565, -0.825); nrm = (0.825, -0.565); mid = (TX + 25 + nrm[0] * 13.9, TY - 28 + nrm[1] * 13.9)       # centre line of the walk, read off the aerial photo
-        def off_axis(q): return (q[0] - mid[0]) * nrm[0] + (q[1] - mid[1]) * nrm[1]
-        c = list(g.minimum_rotated_rectangle.exterior.coords)
-        sides = sorted([(math.dist(c[i], c[i + 1]), c[i], c[i + 1]) for i in range(4)], reverse=True)[:2]
-        d, p, r = min(sides, key=lambda sd: abs(off_axis(((sd[1][0] + sd[2][0]) / 2, (sd[1][1] + sd[2][1]) / 2))))
-        ux, uy = (r[0] - p[0]) / d, (r[1] - p[1]) / d; nx, ny = uy, -ux
-        if g.contains(Point((p[0] + r[0]) / 2 + nx, (p[1] + r[1]) / 2 + ny)): nx, ny = -nx, -ny
-        for i in range(int(d / 2.6) + 1):
-            q = (p[0] + ux * (0.4 + i * 2.6) + nx * 1.8, p[1] + uy * (0.4 + i * 2.6) + ny * 1.8)
-            if pland.contains(Point(q)) and grass.distance(Point(q)) > 0.8: obox(S, q, (ux, uy), 0.5, 0.5, FLAT + 0.02, FLAT + 0.48, (1, 1, 1), MARBLE); ncube += 1
+        if -30 < cx < 30 and -118 < cy < -15 and g.area < 700:               # the long planters of the strip carry a row of small deciduous trees
+            c = list(g.minimum_rotated_rectangle.exterior.coords); d, p, r = max((math.dist(c[i], c[i + 1]), c[i], c[i + 1]) for i in range(4))
+            ux, uy = (r[0] - p[0]) / d, (r[1] - p[1]) / d; m0 = g.centroid
+            for i in range(int(d / 5.5) + 1):
+                o = (i - int(d / 5.5) / 2) * 5.5; x, y = m0.x + ux * o + drnd.uniform(-.4, .4), m0.y + uy * o + drnd.uniform(-.4, .4)
+                if not inner.contains(Point(x, y)): continue
+                H = drnd.uniform(4.6, 5.8); z = FLAT + 0.42; col = (drnd.uniform(0.16, 0.24), drnd.uniform(0.30, 0.40), drnd.uniform(0.05, 0.09)); ndec += 1
+                obox(S, (x, y), (1, 0), 0.22, 0.22, z, z + H * 0.5, (1, 1, 1), BARK)
+                for k in range(4):
+                    a = drnd.uniform(0, 6.28); dd = 0 if k == 0 else drnd.uniform(0.5, 1.1); bx, by, bz = x + dd * math.cos(a), y + dd * math.sin(a), z + H * drnd.uniform(0.62, 0.8); rx = drnd.uniform(1.3, 1.9)
+                    vv, tt = blob(bx, by, bz, rx * 0.8, rx * 0.6, drnd, 9, 5); S.add(vv, tt, col=tuple(k2 * 0.6 for k2 in col), mat=PINE)
+                    foliage(S, bx, by, bz, rx, rx * 0.75, 380, 0.26, col, drnd, PINE); WEB_CLUMPS.append([round(bx, 2), round(by, 2), round(bz, 2), round(rx, 2), round(rx * 0.75, 2)] + [round(k2, 3) for k2 in col])
     else:                                                                    # big lawns lie flush with a thin kerb
         flat(g, 0.10, GRASS); flat(g.boundary.buffer(0.2).intersection(land), 0.16, CURB)
 # the tower lawn: grass, a beaten path round the base, two paths out to the ring, a paved way to the door
@@ -415,14 +416,30 @@ dirt = basepath.union(spokes).intersection(lawn).difference(doorway)
 flat(lawn.difference(tdisc).difference(dirt).difference(doorway), 0.10, GRASS); flat(dirt, 0.09, DIRT); flat(doorway.difference(tdisc).intersection(land).difference(drive.buffer(2.6)), 0.11, PROM)
 backarc = LineString([rp(R_BACK, A0 + SPAN)] + back + [rp(R_BACK, A0)]).buffer(0.3).difference(doorway.buffer(0.3)).difference(drive.buffer(3.0))   # low wall on the road side
 flat(backarc, 0.85, CURB); wallring(backarc, 0.02, 0.85, CURB)
-# the horseshoe: stone-set panels in a pale frame, each tilting up towards the lawn
-flat(ringpoly, 0.07, MARBLE); panels = 0
+# the horseshoe: raised rubble-stone slabs, high at the outer edge and sloping down towards the lawn, on a bed of gravel
+flat(ringpoly, 0.06, DIRT); flat(gravel.difference(drive.buffer(3.0)).difference(doorway), 0.08, DIRT); panels = 0
+def slab_h(q): return 0.14 + 0.5 * (math.hypot(q[0] - TX, q[1] - TY) - R_IN) / (R_OUT - R_IN)
 for i in range(NP):
-    gp = math.radians(1.3); a0, a1 = ANG[i] + gp, ANG[i + 1] - gp
-    pp = Polygon([rp(R_IN + 0.5, a0), rp(R_OUT - 0.5, a0), rp(R_OUT - 0.5, a1), rp(R_IN + 0.5, a1)]).intersection(ringpoly)
-    if pp.is_empty or pp.geom_type != "Polygon": continue
-    v, t = tri(pp.segmentize(1.5)); dz = np.array([0.10 + 0.35 * (1 - (math.hypot(q[0] - TX, q[1] - TY) - R_IN) / (R_OUT - R_IN)) for q in v])
-    S.add(np.c_[v, FLAT + dz], t, mat=COBBLE); panels += 1
+    gp = math.radians(1.6); a0, a1 = ANG[i] + gp, ANG[i + 1] - gp
+    pp = Polygon([rp(R_IN + 0.3, a0), rp(R_OUT - 0.3, a0), rp(R_OUT - 0.3, a1), rp(R_IN + 0.3, a1)]).intersection(ringpoly)
+    if pp.is_empty or pp.geom_type != "Polygon" or pp.area < 15: continue
+    pp = pp.segmentize(1.5); v, t = tri(pp); S.add(np.c_[v, FLAT + np.array([slab_h(q) for q in v])], t, mat=COBBLE); panels += 1
+    c = list(pp.exterior.coords)
+    for p_, r_ in zip(c[:-1], c[1:]):
+        S.add([(p_[0], p_[1], FLAT + 0.04), (r_[0], r_[1], FLAT + 0.04), (r_[0], r_[1], FLAT + slab_h(r_)), (p_[0], p_[1], FLAT + slab_h(p_))], Q, uv=[(0, 0), (math.dist(p_, r_), 0), (math.dist(p_, r_), slab_h(r_)), (0, slab_h(p_))], mat=COBBLE)
+# one line of tall stone stelae along the edge of the big lawn, with low marble benches in front (positions read off the aerial photo)
+P0 = (TX + 47, TY - 27); P1 = (TX - 15, TY - 113); LN = math.dist(P0, P1); sx, sy = (P1[0] - P0[0]) / LN, (P1[1] - P0[1]) / LN; wx, wy = sy, -sx    # w points to the walk (west)
+nstele = 0; srnd = random.Random(4)
+def stele(c, u, z):
+    ux, uy = u; nx, ny = -uy, ux; hb, ht, tb, tt, H = 0.58, 0.44, 0.24, 0.17, srnd.uniform(1.65, 1.85)
+    b = [(c[0] + a * ux + d * nx, c[1] + a * uy + d * ny, z + h) for h, hw, th in ((0, hb, tb), (H, ht, tt)) for a, d in ((-hw, -th), (hw, -th), (hw, th), (-hw, th))]
+    S.add(b, [(0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)], mat=STELE)
+for i in range(int(LN / 2.55) + 1):
+    q = (P0[0] + sx * i * 2.55, P0[1] + sy * i * 2.55)
+    if pland.contains(Point(q)): stele(q, (sx, sy), FLAT + 0.02); nstele += 1
+for i in range(int(LN / 11.5)):
+    m = 6 + i * 11.5; q = (P0[0] + sx * m + wx * 4.3, P0[1] + sy * m + wy * 4.3)
+    if pland.contains(Point(q)): obox(S, q, (sx, sy), 5.2, 0.55, FLAT + 0.02, FLAT + 0.45, (1, 1, 1), MARBLE)
 # lamp posts along the promenade
 coastl = sea.buffer(4.5).boundary.intersection(land.buffer(-1)); nl = 0
 for ls in (coastl.geoms if hasattr(coastl, "geoms") else [coastl]):
@@ -488,6 +505,6 @@ for (x, y) in pines:
         WEB_CLUMPS.append([round(bx, 2), round(by, 2), round(bz + rzz * 0.15, 2), round(rx, 2), round(rzz, 2)] + [round(c, 3) for c in gk])
         a0 = np.array([tx_, ty_, tz_ - 0.8]); b0 = np.array([bx, by, bz - rzz * 0.4]); sd = np.cross(b0 - a0, (0, 0, 1.0)); sd = sd / (np.linalg.norm(sd) + 1e-6) * 0.09
         S.add([a0 - sd, a0 + sd, b0 + sd * 0.5, b0 - sd * 0.5, a0 + (0, 0, 0.16), b0 + (0, 0, 0.1)], [(0, 1, 2), (0, 2, 3), (0, 3, 5), (0, 5, 4), (1, 4, 5), (1, 5, 2)], col=(1, 1, 1), mat=BARK)
-S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("planters", nplant, "cubes", ncube); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
+S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("planters", nplant, "small trees", ndec, "stelae", nstele); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
 
 json.dump({"trees": WEB_TREES, "clumps": WEB_CLUMPS, "tower": [TX, TY, FLAT], "bounds": [x0, y0, x1, y1]}, open(f"{root}/data/web_trees.json", "w"))

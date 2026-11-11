@@ -124,8 +124,8 @@
   {
    "name": "site_cobble",
    "material": "cobble",
-   "verts": 215,
-   "tris": 195,
+   "verts": 1150,
+   "tris": 670,
    "uv": true,
    "file": "data/site_cobble.bin"
   },
@@ -184,8 +184,8 @@
   {
    "name": "site_bark",
    "material": "bark",
-   "verts": 15828,
-   "tris": 20556,
+   "verts": 15996,
+   "tris": 20808,
    "file": "data/site_bark.bin"
   },
   {
@@ -214,16 +214,23 @@
   {
    "name": "site_marble",
    "material": "marble",
-   "verts": 2079,
-   "tris": 1823,
+   "verts": 1497,
+   "tris": 963,
    "file": "data/site_marble.bin"
   },
   {
    "name": "site_dirt",
    "material": "dirt",
-   "verts": 369,
-   "tris": 367,
+   "verts": 413,
+   "tris": 407,
    "file": "data/site_dirt.bin"
+  },
+  {
+   "name": "site_stele",
+   "material": "stele",
+   "verts": 336,
+   "tris": 504,
+   "file": "data/site_stele.bin"
   }
  ],
  "tower": [
@@ -238,7 +245,7 @@
  },
  "clumps": {
   "file": "data/clumps.bin",
-  "count": 1456,
+  "count": 1540,
   "stride": 8
  },
  "sat": {
