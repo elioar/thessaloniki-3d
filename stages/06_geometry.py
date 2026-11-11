@@ -509,6 +509,8 @@ def blob(cx, cy, cz, rx, rz, rnd, seg=7, rings=4):
     return v, t
 near_spots = [p for p in spots if math.hypot(p[0] - TX, p[1] - TY) < 190]; spots = [p for p in spots if math.hypot(p[0] - TX, p[1] - TY) >= 190]
 WEB_TREES = []; WEB_CLUMPS = []
+_own = unary_union([Polygon(g_.exterior.coords) for g_ in (APLZ.geoms if hasattr(APLZ, 'geoms') else [APLZ])] + [Point(Wd(70, 0)).buffer(34)]).buffer(3); _pown = prep(_own)
+spots = [p_ for p_ in spots if not _pown.contains(Point(p_))]          # the square is planted by hand further down
 tm = Mesh()
 for (x, y) in spots:
     z = land_h(x, y); hgt = rnd.uniform(6, 11); r = hgt * rnd.uniform(0.26, 0.34)
@@ -516,7 +518,7 @@ for (x, y) in spots:
     tr = [(x + 0.18 * math.cos(k * 2.094), y + 0.18 * math.sin(k * 2.094), zz) for zz in (z, z + hgt * 0.45) for k in range(3)]
     tm.add(tr, [(0, 1, 4), (0, 4, 3), (1, 2, 5), (1, 5, 4), (2, 0, 3), (2, 3, 5)], col=(0.16, 0.11, 0.07), mat=0)
     WEB_TREES.append([round(x, 2), round(y, 2), round(z, 2), round(hgt, 2), round(r, 2)] + [round(c, 3) for c in gcol])
-    close = math.hypot(x - TX, y - TY) < 520; sg, rg = (10, 6) if close else (6, 4)
+    close = math.hypot(x - TX, y - TY) < 520 or math.hypot(x - ACX, y - ACY) < 330; sg, rg = (10, 6) if close else (6, 4)
     for k in range(4 if close else 2):
         off = 0 if k == 0 else 0.55; kk = 1 if k == 0 else rnd.uniform(0.55, 0.8); gc = tuple(c * rnd.uniform(0.85, 1.15) for c in gcol)
         bx, by, bz = x + rnd.uniform(-1, 1) * r * off, y + rnd.uniform(-1, 1) * r * off, z + hgt * (0.68 if k == 0 else rnd.uniform(0.5, 0.75))
@@ -941,13 +943,14 @@ for sd in (-1, 1):
         q = Wd(al, sd * 10.5)
         if pped.contains(Point(q)) and abu.distance(Point(q)) > 3: lamp_classic(q, ua, 2); nlamp += 1
 nbench = 0
-for tl in np.arange(-16.5, 17, 5.5):                                                           # red benches along the north edge of the grey field (est.)
+for tl in np.arange(-16.5, 17, 5.5):
+    q = Wd(38.2, tl); bench(q, ut); nbench += 1; continue                                                           # red benches along the north edge of the grey field (est.)
     q = Wd(42.2, tl)
     if pped.contains(Point(q)): bench(q, ut); nbench += 1
 for sd in (-1, 1):
     for al in np.arange(-36, 37, 12.0):
-        q = Wd(al, sd * 22.4)
-        if pped.contains(Point(q)): bench(q, ua if sd > 0 else (-ua[0], -ua[1])); nbench += 1
+        q = Wd(al, sd * 18.6)
+        if True: bench(q, ua if sd > 0 else (-ua[0], -ua[1])); nbench += 1
 # ---- the half-round plaza: black discs with a lamp, the row of white advertising columns ----
 for g in H_SEMI:
     c = g.centroid; loc = np.array([c.x, c.y]) - M0; sgn = 1 if float(loc @ tv) > 0 else -1; q = Wd(65.6, sgn * 16.5)               # est.
