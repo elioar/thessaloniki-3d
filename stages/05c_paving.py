@@ -22,6 +22,17 @@ def pavers(name, pal, joint, cols=10, rows=20):       # tile = 2 m: 20 x 10 cm p
     a[j] = np.array(joint) / 255; save(name, a)
 aggregate("agg_beige", (203, 189, 160), (176, 150, 96)); aggregate("agg_grey", (168, 166, 158), (120, 118, 112))
 pavers("pav_terra", [(170, 138, 120), (160, 130, 114), (180, 150, 130), (152, 128, 116), (166, 144, 132), (174, 134, 114), (158, 136, 124)], (118, 104, 94))
+pavers("pav_slab", [(170, 166, 160), (160, 156, 152), (178, 170, 164), (166, 158, 156), (172, 164, 158), (156, 152, 148)], (112, 110, 106), cols=5, rows=10)   # 60 x 30 cm slabs on a 3 m tile
+pavers("pav_pale", [(214, 210, 202), (206, 202, 196), (220, 216, 208), (200, 198, 192)], (150, 148, 142), cols=5, rows=10)
+def carpet():                                          # the red panels of Aristotelous Square: a grey frame, a white cross, four red fields with darker inner squares
+    a = np.ones((N, N, 3)) * np.array((176, 172, 164)) / 255; y, x = np.mgrid[0:N, 0:N] / N
+    def sq(x0, x1, y0, y1): return (x >= x0) & (x < x1) & (y >= y0) & (y < y1)
+    a[sq(0.06, 0.94, 0.06, 0.94)] = np.array((120, 44, 36)) / 255; a[sq(0.47, 0.53, 0.06, 0.94) | sq(0.06, 0.94, 0.47, 0.53)] = np.array((205, 200, 190)) / 255
+    for cx in (0.265, 0.735):
+        for cy in (0.265, 0.735):
+            a[sq(cx - 0.13, cx + 0.13, cy - 0.13, cy + 0.13)] = np.array((196, 190, 180)) / 255; a[sq(cx - 0.105, cx + 0.105, cy - 0.105, cy + 0.105)] = np.array((142, 56, 44)) / 255
+    g = ((x * 44) % 1 < 0.05) | ((y * 44) % 1 < 0.05); a[g] *= 0.86; save("carpet", a + speckle(0.03, 0.05))
+carpet()
 man = json.load(open(f"{out}/assets.json"))
-for k in ("agg_beige", "agg_grey", "pav_terra"): man[k] = {"diff": f"data/assets/{k}.jpg"}
+for k in ("agg_beige", "agg_grey", "pav_terra", "pav_slab", "pav_pale", "carpet"): man[k] = {"diff": f"data/assets/{k}.jpg"}
 json.dump(man, open(f"{out}/assets.json", "w"), indent=1); print("paving textures ok")

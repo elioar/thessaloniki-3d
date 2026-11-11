@@ -36,6 +36,10 @@ for it in L.get("plaza", []):
         _pl[it["name"]] = unary_union([Polygon(p_[0], p_[1:]).buffer(0) for p_ in it["poly"]] + ([_pl[it["name"]]] if it["name"] in _pl else []))
 ASQ = _pl["Πλατεία Αριστοτέλους"]; AC = ASQ.centroid; ACX, ACY = AC.x, AC.y
 APLZ = unary_union(list(_pl.values())).intersection(AC.buffer(330))
+_c = list(ASQ.minimum_rotated_rectangle.exterior.coords); _e1 = np.array(_c[1]) - np.array(_c[0]); _e2 = np.array(_c[2]) - np.array(_c[1]); _g = np.array([0.62, 0.78])
+av, tv = (_e1, _e2) if abs(_e1 @ _g) / np.linalg.norm(_e1) > abs(_e2 @ _g) / np.linalg.norm(_e2) else (_e2, _e1)
+La, Wt = float(np.linalg.norm(av)), float(np.linalg.norm(tv)); av = av / La * (1 if av @ _g > 0 else -1); tv = np.array([av[1], -av[0]]); M0 = np.array(ASQ.minimum_rotated_rectangle.centroid.coords[0])
+def Wd(al, tl): q = M0 + av * al + tv * tl; return (float(q[0]), float(q[1]))      # square coordinates: al = metres inland from its centre, tl = metres to the east
 def land_h(x, y):
     h = max(bil(Zi, (x - x0) / (x1 - x0), (y - y0) / (y1 - y0)), 0.0) + QUAY
     w = min(max((math.hypot(x - TX, y - TY) - 270) / 150, 0), 1); w = w * w * (3 - 2 * w)   # the real plaza is level
@@ -97,6 +101,51 @@ def obox(mesh, c, u, length, width, z0, z1, col, mat):
     v = [(x, y, z0) for x, y in b] + [(x, y, z1) for x, y in b]
     t = [(0, 2, 1), (0, 3, 2), (4, 5, 6), (4, 6, 7), (0, 1, 5), (0, 5, 4), (1, 2, 6), (1, 6, 5), (2, 3, 7), (2, 7, 6), (3, 0, 4), (3, 4, 7)]
     mesh.add(v, t, col=col, mat=mat)
+def limb(mesh, p0, p1, r0, r1, col, mat, n=7, cap=True):
+    """tapered cylinder between two points."""
+    p0 = np.array(p0, float); p1 = np.array(p1, float); d = p1 - p0; ln = np.linalg.norm(d)
+    if ln < 1e-6: return
+    d /= ln; ref = np.array([0, 0, 1.0]) if abs(d[2]) < 0.9 else np.array([1.0, 0, 0]); e1 = np.cross(d, ref); e1 /= np.linalg.norm(e1); e2 = np.cross(d, e1)
+    ang = np.arange(n) * 2 * np.pi / n; ring = np.cos(ang)[:, None] * e1 + np.sin(ang)[:, None] * e2
+    v = np.vstack([p0 + ring * r0, p1 + ring * r1, [p0], [p1]]); t = []
+    for i in range(n):
+        j = (i + 1) % n; t += [(i, j, n + j), (i, n + j, n + i)]
+        if cap: t += [(2 * n, j, i), (2 * n + 1, n + i, n + j)]
+    mesh.add(v, t, col=col, mat=mat)
+P_SKIN = [(0.78, 0.60, 0.48), (0.70, 0.52, 0.40), (0.85, 0.68, 0.56), (0.55, 0.38, 0.28)]; P_HAIR = [(0.05, 0.04, 0.03), (0.16, 0.10, 0.05), (0.30, 0.20, 0.10), (0.55, 0.52, 0.50), (0.45, 0.32, 0.12)]
+P_SHIRT = [(0.85, 0.85, 0.83), (0.10, 0.10, 0.12), (0.65, 0.12, 0.10), (0.12, 0.25, 0.50), (0.80, 0.70, 0.20), (0.20, 0.42, 0.30), (0.55, 0.55, 0.58), (0.86, 0.50, 0.20), (0.45, 0.25, 0.45), (0.75, 0.80, 0.88)]
+P_PANTS = [(0.10, 0.12, 0.20), (0.08, 0.08, 0.09), (0.30, 0.32, 0.38), (0.45, 0.38, 0.28), (0.15, 0.20, 0.32), (0.60, 0.58, 0.52)]
+def person2(mesh, x, y, z, a, k, rnd, mat):
+    """a walking figure built from tapered limbs: legs in stride, arms swinging against them, torso, neck, head and hair."""
+    f = np.array([math.cos(a), math.sin(a), 0.0]); sd = np.array([-math.sin(a), math.cos(a), 0.0]); O = np.array([x, y, z]); zu = np.array([0, 0, 1.0])
+    def Pt(fw, side, h): return O + (f * fw + sd * side) * k + zu * h * k
+    sk = P_SKIN[rnd.randrange(4)]; sh = P_SHIRT[rnd.randrange(len(P_SHIRT))]; pa = P_PANTS[rnd.randrange(len(P_PANTS))]; hr = P_HAIR[rnd.randrange(5)]; short = rnd.random() < 0.6; st = rnd.uniform(-0.3, 0.3)
+    for sg in (-1, 1):
+        hip = Pt(0, sg * 0.085, 0.90); ank = Pt(sg * st * 0.5, sg * 0.085, 0.07); knee = (hip + ank) / 2 + f * 0.05 * k
+        limb(mesh, hip, knee, 0.085 * k, 0.062 * k, pa, mat); limb(mesh, knee, ank, 0.06 * k, 0.042 * k, pa, mat); limb(mesh, ank - zu * 0.03 * k, ank + f * 0.2 * k - zu * 0.04 * k, 0.045 * k, 0.038 * k, (0.06, 0.05, 0.05), mat, 6)
+        s0 = Pt(0, sg * 0.2, 1.42); el = Pt(-sg * st * 0.22, sg * 0.235, 1.14); hd = Pt(-sg * st * 0.42 + 0.03, sg * 0.23, 0.88)
+        limb(mesh, s0, el, 0.05 * k, 0.042 * k, sh, mat); limb(mesh, el, hd, 0.04 * k, 0.03 * k, sk if short else sh, mat)
+    limb(mesh, Pt(0, 0, 0.84), Pt(0, 0, 1.0), 0.15 * k, 0.15 * k, pa, mat, 9); limb(mesh, Pt(0, 0, 1.0), Pt(0, 0, 1.45), 0.15 * k, 0.185 * k, sh, mat, 9); limb(mesh, Pt(0, 0, 1.45), Pt(0, 0, 1.54), 0.05 * k, 0.05 * k, sk, mat, 6)
+    c = Pt(0.01, 0, 1.64); v, t = blob(c[0], c[1], c[2], 0.10 * k, 0.12 * k, rnd, 9, 6); mesh.add(v, t, col=sk, mat=mat)
+    c = Pt(-0.025, 0, 1.675); v, t = blob(c[0], c[1], c[2], 0.105 * k, 0.10 * k, rnd, 9, 5); mesh.add(v, t, col=hr, mat=mat)
+def palm(mesh, x, y, z, Ht, rnd, mcol, mleaf):
+    """date palm: thick trunk, crown of arching fronds with drooping leaflets."""
+    a = rnd.uniform(0, 6.28); lx, ly = math.cos(a) * 0.05 * Ht, math.sin(a) * 0.05 * Ht; prev = np.array([x, y, z]); tc = (0.26, 0.20, 0.14)
+    for i in range(1, 6):
+        fq = i / 5; cur = np.array([x + lx * fq * fq, y + ly * fq * fq, z + Ht * fq]); limb(mesh, prev, cur, 0.30 - 0.06 * (i - 1) / 5, 0.30 - 0.06 * fq, tuple(c * rnd.uniform(0.85, 1.1) for c in tc), mcol, 9, False); prev = cur
+    v, t = blob(prev[0], prev[1], prev[2] + 0.1, 0.5, 0.55, rnd, 9, 6); mesh.add(v, t, col=(0.30, 0.22, 0.12), mat=mcol); zu = np.array([0, 0, 1.0]); V = []; T = []; C = []
+    for i in range(30):
+        az = rnd.uniform(0, 6.28); th = rnd.uniform(-0.45, 1.35); Lf = rnd.uniform(2.9, 4.0); dh = np.array([math.cos(az), math.sin(az), 0]); sdv = np.array([-math.sin(az), math.cos(az), 0]); pos = prev + zu * 0.3; pts = []
+        for j in range(8): pts.append(pos.copy()); pos = pos + (Lf / 7) * (math.cos(th) * dh + math.sin(th) * zu); th -= 0.26 + 0.05 * j
+        g = (rnd.uniform(0.06, 0.11), rnd.uniform(0.17, 0.27), rnd.uniform(0.04, 0.07))
+        for j in range(7):
+            w0 = 0.55 * math.sin(math.pi * min(1, j / 7 * 1.05 + 0.08)) ** 0.7; w1 = 0.55 * math.sin(math.pi * min(1, (j + 1) / 7 * 1.05 + 0.08)) ** 0.7 if j < 6 else 0.03; c0, c1 = pts[j], pts[j + 1]; b = len(V)
+            V += [c0, c1, c0 + sdv * w0 - zu * w0 * 0.4, c1 + sdv * w1 - zu * w1 * 0.4, c0 - sdv * w0 - zu * w0 * 0.4, c1 - sdv * w1 - zu * w1 * 0.4]; T += [(b, b + 1, b + 3), (b, b + 3, b + 2), (b, b + 4, b + 5), (b, b + 5, b + 1)]; C += [g] * 6
+    mesh.v.append(np.array(V)); mesh.t.append(np.array(T) + mesh.n); mesh.n += len(V); mesh.uv.append(np.array(V)[:, :2].copy()); mesh.col.append(np.array(C)); mesh.mat.append(np.full(len(T), mleaf, np.int32))
+def chair(mesh, q, u, z, col, mat):
+    n = (-u[1], u[0]); obox(mesh, q, u, 0.42, 0.42, z + 0.42, z + 0.46, col, mat); obox(mesh, (q[0] - u[0] * 0.2, q[1] - u[1] * 0.2), u, 0.04, 0.42, z + 0.46, z + 0.86, col, mat)
+    for sa in (-0.18, 0.18):
+        for sb in (-0.18, 0.18): obox(mesh, (q[0] + u[0] * sa + n[0] * sb, q[1] + u[1] * sa + n[1] * sb), u, 0.035, 0.035, z, z + 0.42, (0.12, 0.12, 0.12), mat)
 # ---------- buildings ----------
 PAL = [(0.80, 0.76, 0.68), (0.72, 0.68, 0.60), (0.84, 0.81, 0.75), (0.70, 0.63, 0.52), (0.78, 0.70, 0.56), (0.62, 0.61, 0.58), (0.82, 0.72, 0.60), (0.72, 0.56, 0.44), (0.86, 0.84, 0.80), (0.76, 0.66, 0.50), (0.66, 0.60, 0.54), (0.80, 0.62, 0.50)]
 NEARPAL = [(0.74, 0.70, 0.62), (0.72, 0.62, 0.44), (0.68, 0.54, 0.36), (0.62, 0.60, 0.56), (0.78, 0.68, 0.52), (0.70, 0.48, 0.34), (0.60, 0.55, 0.44), (0.80, 0.77, 0.72), (0.66, 0.58, 0.40), (0.54, 0.56, 0.58)]
@@ -214,30 +263,51 @@ def theatre_royal(P, bd, zg, rnd):
         obox(bm, pt(0, sgn * (hw - 0.3), 0)[:2], u, 2 * hl, 0.5, zt - 0.5, zt + 0.1, conc, PLAIN)
         for i in range(int(2 * hl / 5.5) + 1):
             a = -hl + 0.8 + i * (2 * hl - 1.6) / int(2 * hl / 5.5); obox(bm, pt(a, sgn * (hw - 0.6), 0)[:2], u, 0.7, 0.7, zg, zt - 0.5, conc, PLAIN)
-def hebrard(P, bd, zg, zt, rnd):
-    """Buildings on Aristotelous Square and its axis (Hebrard plan): ground-floor arcade of round arches with a recessed gallery,
-    pilasters between bays, string courses, a balcony on the first floor, arched windows on the top floor, a heavy cornice.
-    Heights come from the map; the bay rhythm and the mouldings are drawn from the general look of the square, not from survey drawings."""
-    cream = [(0.80, 0.71, 0.54), (0.84, 0.76, 0.60), (0.78, 0.70, 0.56), (0.82, 0.74, 0.62)][rnd.randrange(4)]; trim = (0.90, 0.86, 0.76); dark = (0.03, 0.035, 0.045)
+OCHRE = (0.80, 0.58, 0.24); REDCOL = (0.42, 0.10, 0.08)
+STY = {"144215746": dict(sign="ELECTRA PALACE HOTEL", cream=(0.84, 0.78, 0.63), cols=REDCOL, top="pergola", accent=None, awn=False),
+       "26751274": dict(sign="ΟΛΥΜΠΙΟΝ", cream=(0.84, 0.77, 0.61), cols=REDCOL, top="tile", accent=None, awn=True)}
+def hebrard(P, bd, zg, zt, rnd, lite, st):
+    """Buildings on Aristotelous Square and its axis (Hebrard plan). Read off aerial and street photographs:
+    a tall arcade of round arches with engaged red columns and a recessed gallery; above it rows of windows, each with its own
+    balustraded balcony on brackets; one floor treated as a continuous loggia of small arches; a bracketed cornice; and on top
+    either set-back terraces behind white pergolas or a red tiled roof. Heights are from the map; bay widths and mouldings are estimates."""
+    cream = st["cream"]; trim = (0.92, 0.89, 0.82); dark = (0.03, 0.035, 0.045); dk = tuple(k * 0.72 for k in cream); iron = (0.08, 0.08, 0.08)
     H = zt - zg; ext = P.exterior if P.exterior.is_ccw else P.exterior.reverse(); c = list(ext.coords)[:-1]; E = []
     for i in range(len(c)):
         p_, r_ = c[i], c[(i + 1) % len(c)]; d = math.dist(p_, r_)
         if d < 0.05: continue
         u = ((r_[0] - p_[0]) / d, (r_[1] - p_[1]) / d); n = (u[1], -u[0]); mid = Point((p_[0] + r_[0]) / 2 + n[0] * 2.0, (p_[1] + r_[1]) / 2 + n[1] * 2.0)
         E.append((p_, r_, d, u, n, not any(allp[k].contains(mid) for k in alltree.query(mid))))
-    roof(P, zt - 0.9, (0.58, 0.57, 0.55))
-    inner = P.buffer(-3.5, join_style=2)
-    if inner.geom_type == "Polygon" and inner.area > 0.35 * P.area: walls(inner, zt - 0.9, zt + 2.4, zg, cream, WALLM, rnd); roof(inner, zt + 2.4, (0.6, 0.59, 0.57))
+    G = 8.4 if H > 24 else 7.2; crown = 1.0; nfl = max(2, round((H - G - crown) / 3.3)); fh = (H - G - crown) / nfl; logk = nfl - 2 if nfl >= 4 else -1; topk = nfl - 1; pergola = st["top"] == "pergola" and nfl >= 3
+    if st["top"] == "tile":
+        Pe = P.buffer(0.55, join_style=2); inner = P.buffer(-3.4, join_style=2); tile = (0.50, 0.20, 0.11)
+        if inner.geom_type == "Polygon" and inner.area > 30:
+            ring = Pe.difference(inner); ib = inner.exterior
+            for pp in (ring.geoms if hasattr(ring, "geoms") else [ring]):
+                if pp.geom_type != "Polygon": continue
+                v, t = tri(pp.segmentize(3.0)); z = np.array([zt + 2.3 if ib.distance(Point(q)) < 0.02 else zt - 0.05 for q in v]); bm.add(np.c_[v, z], t, col=tile, mat=PLAIN)
+            roof(inner, zt + 2.3, tile, PLAIN)
+            for k in range(int(inner.exterior.length / 9)):                              # dormers
+                q = inner.exterior.interpolate(k * 9 + 3); q2 = inner.exterior.interpolate(k * 9 + 3.5); u = (q2.x - q.x, q2.y - q.y); nn = math.hypot(*u) or 1
+                obox(bm, (q.x, q.y), (u[0] / nn, u[1] / nn), 1.3, 1.6, zt + 1.2, zt + 2.6, trim, PLAIN)
+        else: roof(P, zt - 0.1, tile, PLAIN)
+    elif pergola:
+        inner = P.buffer(-2.3, join_style=2); roof(inner if inner.geom_type == "Polygon" and not inner.is_empty else P, zt - 0.9, (0.58, 0.57, 0.55))
+    else:
+        roof(P, zt - 0.9, (0.58, 0.57, 0.55)); inner = P.buffer(-3.5, join_style=2)
+        if inner.geom_type == "Polygon" and inner.area > 0.35 * P.area: walls(inner, zt - 0.9, zt + 2.4, zg, cream, WALLM, rnd); roof(inner, zt + 2.4, (0.6, 0.59, 0.57))
     def plain(e):
         p_, r_, d = e[0], e[1], e[2]; bm.add([(p_[0], p_[1], zg - 1.5), (r_[0], r_[1], zg - 1.5), (r_[0], r_[1], zt), (p_[0], p_[1], zt)], Q, uv=[(0, -1.5), (d, -1.5), (d, H), (0, H)], col=cream, mat=WALLM)
-    def facade(path):
+    def facade(path, sign):
         cum = [0.0]
         for e in path: cum.append(cum[-1] + e[2])
         Ls = cum[-1]
-        def P3(sv, z, dep=0.0):
-            sv = min(max(sv, 0.0), Ls); j = 0
+        def seg(sv):
+            j = 0
             while j < len(path) - 1 and sv > cum[j + 1]: j += 1
-            p_, _, _, u, n, _ = path[j]; a = sv - cum[j]; return (p_[0] + u[0] * a - n[0] * dep, p_[1] + u[1] * a - n[1] * dep, zg + z)
+            return j
+        def P3(sv, z, dep=0.0):
+            sv = min(max(sv, 0.0), Ls); j = seg(sv); p_, _, _, u, n, _ = path[j]; a = sv - cum[j]; return (p_[0] + u[0] * a - n[0] * dep, p_[1] + u[1] * a - n[1] * dep, zg + z)
         def cellmesh(poly, dep, col, mat=PLAIN):
             for pp in (poly.geoms if hasattr(poly, "geoms") else [poly]):
                 if pp.geom_type == "Polygon" and pp.area > 1e-4: v, t = tri(pp); bm.add([P3(a, b, dep) for a, b in v], t, col=col, mat=mat)
@@ -246,46 +316,98 @@ def hebrard(P, bd, zg, zt, rnd):
             for (a, b), (e_, f) in zip(cc[:-1], cc[1:]):
                 if skip_bottom and abs(b - zmin) < 1e-6 and abs(f - zmin) < 1e-6: continue
                 bm.add([P3(a, b, d0), P3(e_, f, d0), P3(e_, f, d1), P3(a, b, d1)], Q, col=col, mat=PLAIN)
-        def band(s0, s1, z0, z1, out, col, mat=PLAIN):
+        def band(s0, s1, z0, z1, out, col, mat=PLAIN, inner=0.0):
             s0, s1 = max(s0, 0.0), min(s1, Ls)
-            if s1 - s0 < 0.02: return
-            A = [P3(s0, z0, -out), P3(s1, z0, -out), P3(s1, z1, -out), P3(s0, z1, -out), P3(s0, z0, 0), P3(s1, z0, 0), P3(s1, z1, 0), P3(s0, z1, 0)]
-            bm.add(A, [(0, 1, 2), (0, 2, 3), (3, 2, 6), (3, 6, 7), (0, 5, 1), (0, 4, 5), (0, 3, 7), (0, 7, 4), (1, 5, 6), (1, 6, 2)], col=col, mat=mat)
-        nb = max(2, round(Ls / 4.3)); bw = Ls / nb; G = 7.2; crown = 1.1; nfl = max(1, round((H - G - crown) / 3.25)); fh = (H - G - crown) / nfl; dk = tuple(k * 0.72 for k in cream)
+            if s1 - s0 < 0.01: return
+            A = [P3(s0, z0, -out), P3(s1, z0, -out), P3(s1, z1, -out), P3(s0, z1, -out), P3(s0, z0, -inner), P3(s1, z0, -inner), P3(s1, z1, -inner), P3(s0, z1, -inner)]
+            bm.add(A, [(0, 1, 2), (0, 2, 3), (3, 2, 6), (3, 6, 7), (0, 5, 1), (0, 4, 5), (0, 3, 7), (0, 7, 4), (1, 5, 6), (1, 6, 2), (4, 6, 5), (4, 7, 6)], col=col, mat=mat)
+        def quad(s0, s1, z0, z1, dep, col, mat=PLAIN): bm.add([P3(s0, z0, dep), P3(s1, z0, dep), P3(s1, z1, dep), P3(s0, z1, dep)], Q, col=col, mat=mat)
+        def hquad(s0, s1, z, d0, d1, col): bm.add([P3(s0, z, d0), P3(s1, z, d0), P3(s1, z, d1), P3(s0, z, d1)], Q, col=col, mat=PLAIN)
+        def balustrade(sL, sR, zf, out, inn):
+            """rail on turned balusters between end posts, standing on the edge of a slab."""
+            if lite: band(sL, sR, zf, zf + 0.95, out, trim, inner=inn); return
+            band(sL, sR, zf, zf + 0.09, out, trim, inner=inn); band(sL, sR, zf + 0.86, zf + 0.96, out + 0.02, trim, inner=inn - 0.02)
+            for e_ in (sL, sR - 0.14): band(e_, e_ + 0.14, zf + 0.09, zf + 0.86, out, trim, inner=inn)
+            nbal = max(2, int((sR - sL - 0.3) / 0.2))
+            for q_ in range(nbal): a = sL + 0.22 + q_ * (sR - sL - 0.44) / max(1, nbal - 1); band(a - 0.035, a + 0.035, zf + 0.09, zf + 0.86, out - 0.03, trim, inner=inn + 0.03)
+        nb = max(2, round(Ls / 4.3)); bw = Ls / nb; acc = st["accent"]
         for i in range(nb):
-            s0, s1 = i * bw, (i + 1) * bw; sm = (s0 + s1) / 2; hw = (bw - 1.25) / 2; top = G - 1.0
-            arch = Polygon([(sm - hw, 0), (sm + hw, 0)] + [(sm + hw * math.cos(math.pi * k / 12), top - hw + hw * math.sin(math.pi * k / 12)) for k in range(13)])
-            cellmesh(box(s0, 0, s1, G).difference(arch), 0, cream); reveal(arch, 0, 0.85, cream, True)
-            bm.add([P3(s0, 0, 3.5), P3(s1, 0, 3.5), P3(s1, G, 3.5), P3(s0, G, 3.5)], Q, col=dk, mat=PLAIN)                         # back wall of the gallery
-            bm.add([P3(s0, G - 0.3, 0.85), P3(s1, G - 0.3, 0.85), P3(s1, G - 0.3, 3.5), P3(s0, G - 0.3, 3.5)], Q, col=dk, mat=PLAIN)   # its ceiling
-            bm.add([P3(s0 + 0.35, 0.45, 3.44), P3(s1 - 0.35, 0.45, 3.44), P3(s1 - 0.35, 3.5, 3.44), P3(s0 + 0.35, 3.5, 3.44)], Q, col=dark, mat=GLASS)   # shop front
-            bm.add([P3(s0 + 0.6, 4.4, 3.44), P3(s1 - 0.6, 4.4, 3.44), P3(s1 - 0.6, 5.9, 3.44), P3(s0 + 0.6, 5.9, 3.44)], Q, col=dark, mat=GLASS)       # mezzanine window
-            if rnd.random() < 0.5: bm.add([P3(s0 + 0.35, 3.5, 3.40), P3(s1 - 0.35, 3.5, 3.40), P3(s1 - 0.35, 4.1, 3.40), P3(s0 + 0.35, 4.1, 3.40)], Q, col=FABRIC[rnd.randrange(len(FABRIC))], mat=PLAIN)   # shop sign
-            band(sm - hw - 0.12, sm - hw + 0.05, top - hw - 0.25, top - hw, 0.1, trim); band(sm + hw - 0.05, sm + hw + 0.12, top - hw - 0.25, top - hw, 0.1, trim)   # imposts
-            ww = min(1.7, bw * 0.42)
+            s0, s1 = i * bw, (i + 1) * bw; sm = (s0 + s1) / 2; hw = (bw - 1.3) / 2; top = G - 1.55
+            # ---- arcade ----
+            arch = Polygon([(sm - hw, 0), (sm + hw, 0)] + [(sm + hw * math.cos(math.pi * k / 14), top - hw + hw * math.sin(math.pi * k / 14)) for k in range(15)])
+            cellmesh(box(s0, 0, s1, G).difference(arch), 0, cream); reveal(arch, 0, 0.9, cream, True)
+            quad(s0, s1, 0, G, 3.6, dk); hquad(s0, s1, G - 0.3, 0.9, 3.6, dk)
+            quad(s0 + 0.35, s1 - 0.35, 0.45, 3.6, 3.54, dark, GLASS); quad(s0 + 0.6, s1 - 0.6, 4.6, 6.2, 3.54, dark, GLASS)
+            if rnd.random() < 0.6: quad(s0 + 0.35, s1 - 0.35, 3.6, 4.25, 3.50, FABRIC[rnd.randrange(len(FABRIC))])
+            if not lite:
+                arc = [(sm + (hw + 0.16) * math.cos(math.pi * k / 14), top - hw + (hw + 0.16) * math.sin(math.pi * k / 14)) for k in range(15)]      # moulded archivolt
+                arc_i = [(sm + (hw + 0.0) * math.cos(math.pi * k / 14), top - hw + hw * math.sin(math.pi * k / 14)) for k in range(15)]
+                for (a0, b0), (a1, b1), (c0, d0), (c1, d1) in zip(arc[:-1], arc[1:], arc_i[:-1], arc_i[1:]): bm.add([P3(c0, d0, -0.07), P3(c1, d1, -0.07), P3(a1, b1, -0.07), P3(a0, b0, -0.07)], Q, col=trim, mat=PLAIN)
+                band(sm - 0.16, sm + 0.16, top - 0.05, top + 0.42, 0.14, trim)                                                           # keystone
+                colr = st["cols"]; cz = top - hw                                                                                           # engaged column on the pier
+                band(s0 - 0.42, s0 + 0.42, 0, 0.75, 0.5, trim); limb(bm, P3(s0, 0.75, -0.16), P3(s0, cz - 0.35, -0.16), 0.33, 0.29, colr, PLAIN, 12, False)
+                band(s0 - 0.40, s0 + 0.40, cz - 0.35, cz - 0.12, 0.5, trim); band(s0 - 0.46, s0 + 0.46, cz - 0.12, cz, 0.56, trim)
+            else: band(s0 - 0.33, s0 + 0.33, 0, top - hw, 0.3, st["cols"])
+            # ---- floors ----
+            ww = min(1.6, bw * 0.4)
             for k in range(nfl):
-                z0 = G + k * fh; last = k == nfl - 1 and nfl > 2
-                if last:
-                    wt = z0 + fh - 0.75; op = Polygon([(sm - ww / 2, z0 + 0.85), (sm + ww / 2, z0 + 0.85)] + [(sm + ww / 2 * math.cos(math.pi * q_ / 8), wt - ww / 2 + ww / 2 * math.sin(math.pi * q_ / 8)) for q_ in range(9)])
-                else:
-                    sill = 0.3 if k == 0 else 0.85; op = box(sm - ww / 2, z0 + sill, sm + ww / 2, z0 + fh - 0.75)
-                    band(sm - ww / 2 - 0.15, sm + ww / 2 + 0.15, z0 + fh - 0.75, z0 + fh - 0.57, 0.12, trim)                       # lintel
-                    if k > 0: band(sm - ww / 2 - 0.15, sm + ww / 2 + 0.15, z0 + sill - 0.12, z0 + sill, 0.14, trim)               # sill
-                cellmesh(box(s0, z0, s1, z0 + fh).difference(op), 0, cream); reveal(op, 0, 0.3, trim); cellmesh(op, 0.3, dark, GLASS)
-                band(sm - 0.03, sm + 0.03, min(b for _, b in op.exterior.coords), max(b for _, b in op.exterior.coords) - (ww / 2 if last else 0), -0.27, trim)   # mullion
-            band(s0 - 0.28, s0 + 0.28, G + 0.3, H - crown - 0.25, 0.14, trim)                                                     # pilaster
-            band(s0, s1, G - 0.15, G + 0.3, 0.4, trim)                                                                            # cornice over the arcade
-            if nfl > 2: band(s0, s1, G + fh - 0.12, G + fh + 0.1, 0.16, trim); band(s0, s1, H - crown - fh - 0.1, H - crown - fh + 0.1, 0.16, trim)
-            band(s0, s1, H - crown - 0.25, H - crown + 0.12, 0.5, trim); band(s0, s1, H - crown + 0.12, H - crown + 0.32, 0.7, trim)   # main cornice
-            cellmesh(box(s0, H - crown, s1, H), 0, cream); band(s0, s1, H - 0.14, H, 0.08, trim)                                  # parapet
-            band(sm - ww / 2 - 0.55, sm + ww / 2 + 0.55, G + 0.3, G + 0.44, 0.8, trim)                                            # first-floor balcony
-            band(sm - ww / 2 - 0.55, sm + ww / 2 + 0.55, G + 1.32, G + 1.38, 0.8, (0.08, 0.08, 0.08))
-            for q_ in range(7): a = sm - ww / 2 - 0.5 + q_ * (ww + 1.0) / 6; bm.add([P3(a - 0.03, G + 0.44, -0.77), P3(a + 0.03, G + 0.44, -0.77), P3(a + 0.03, G + 1.32, -0.77), P3(a - 0.03, G + 1.32, -0.77)], Q, col=(0.08, 0.08, 0.08), mat=PLAIN)
-        band(Ls - 0.28, Ls, G + 0.3, H - crown - 0.25, 0.14, trim)
-    start = next((i for i, e in enumerate(E) if not e[5]), 0); cur = []
+                z0 = G + k * fh
+                if k == logk:                                                                                                              # loggia of small arches
+                    wl = bw / 2 - 0.55; ops = []
+                    for cs in (sm - bw / 4, sm + bw / 4):
+                        tp = z0 + fh - 0.5; ops.append(Polygon([(cs - wl / 2, z0), (cs + wl / 2, z0)] + [(cs + wl / 2 * math.cos(math.pi * q_ / 10), tp - wl / 2 + wl / 2 * math.sin(math.pi * q_ / 10)) for q_ in range(11)]))
+                    cellmesh(box(s0, z0, s1, z0 + fh).difference(unary_union(ops)), 0, acc or cream)
+                    for o in ops: reveal(o, 0, 0.35, trim, True); ob = o.bounds; balustrade(ob[0], ob[2], z0, -0.06, -0.22)
+                    quad(s0, s1, z0, z0 + fh, 1.5, dk); hquad(s0, s1, z0 + 0.01, 0, 1.5, dk); hquad(s0, s1, z0 + fh - 0.08, 0.35, 1.5, dk); quad(sm - 0.75, sm + 0.75, z0 + 0.05, z0 + 2.3, 1.46, dark, GLASS)
+                    if not lite:
+                        for cs in (sm - bw / 4, sm + bw / 4):
+                            for e_ in (-wl / 2, wl / 2): band(cs + e_ - 0.12, cs + e_ + 0.12, z0 + fh - 0.5 - wl / 2 - 0.16, z0 + fh - 0.5 - wl / 2, 0.08, trim)   # imposts
+                    continue
+                if k == topk and pergola:                                                                                                  # set-back terrace behind a white pergola
+                    quad(s0, s1, z0, z0 + 3.1, 2.3, cream); hquad(s0, s1, z0 + 0.01, 0, 2.3, dk); quad(sm - 0.8, sm + 0.8, z0 + 0.05, z0 + 2.35, 2.26, dark, GLASS)
+                    balustrade(s0, s1, z0, -0.02, -0.2); band(s0 - 0.09, s0 + 0.09, z0, z0 + 2.9, -0.22, trim, inner=-0.4); band(s0, s1, z0 + 2.9, z0 + 3.12, -0.18, trim, inner=-0.44)
+                    for q_ in range(4): a = s0 + (q_ + 0.5) * bw / 4; band(a - 0.05, a + 0.05, z0 + 3.12, z0 + 3.28, -0.1, trim, inner=-2.3)
+                    if rnd.random() < 0.4: hquad(s0 + 0.1, s1 - 0.1, z0 + 3.3, 0.3, 2.2, (0.90, 0.88, 0.80))                                    # canvas awning
+                    continue
+                arched = k == topk and st["top"] == "tile"
+                if arched:
+                    wt = z0 + fh - 0.7; op = Polygon([(sm - ww / 2, z0 + 0.3), (sm + ww / 2, z0 + 0.3)] + [(sm + ww / 2 * math.cos(math.pi * q_ / 10), wt - ww / 2 + ww / 2 * math.sin(math.pi * q_ / 10)) for q_ in range(11)])
+                else: op = box(sm - ww / 2, z0 + 0.3, sm + ww / 2, z0 + fh - 0.75)
+                cellmesh(box(s0, z0, s1, z0 + fh).difference(op), 0, cream); reveal(op, 0, 0.28, trim); cellmesh(op, 0.28, dark, GLASS); ob = op.bounds
+                if not lite:
+                    band(sm - 0.035, sm + 0.035, ob[1], ob[3] - (ww / 2 if arched else 0), -0.26, trim, inner=-0.2); band(ob[0], ob[2], ob[1] + (ob[3] - ob[1]) * 0.68, ob[1] + (ob[3] - ob[1]) * 0.68 + 0.06, -0.26, trim, inner=-0.2)
+                    for e_ in (ob[0] - 0.13, ob[2]): band(e_, e_ + 0.13, ob[1], ob[3] - (ww / 2 if arched else 0), 0.06, trim)                    # architrave
+                if not arched: band(ob[0] - 0.2, ob[2] + 0.2, ob[3], ob[3] + 0.16, 0.08, trim); band(ob[0] - 0.26, ob[2] + 0.26, ob[3] + 0.16, ob[3] + 0.26, 0.2, trim)   # lintel with a small cornice
+                if st["awn"] and arched and rnd.random() < 0.6:
+                    fc = (0.10, 0.38, 0.28) if rnd.random() < 0.6 else (0.55, 0.10, 0.08); bm.add([P3(ob[0] - 0.1, ob[3], 0), P3(ob[2] + 0.1, ob[3], 0), P3(ob[2] + 0.1, ob[3] - ww / 2 - 0.2, -0.9), P3(ob[0] - 0.1, ob[3] - ww / 2 - 0.2, -0.9)], Q, col=fc, mat=PLAIN)
+                # balcony on brackets with a balustrade
+                sL, sR = ob[0] - 0.45, ob[2] + 0.45; band(sL, sR, z0 + 0.14, z0 + 0.3, 0.78, trim)
+                if not lite:
+                    for e_ in (sL + 0.12, sR - 0.3): band(e_, e_ + 0.18, z0 - 0.22, z0 + 0.14, 0.5, trim); band(e_, e_ + 0.18, z0 - 0.42, z0 - 0.22, 0.26, trim)
+                balustrade(sL, sR, z0 + 0.3, 0.78, 0.66)
+                if not lite:
+                    for e_ in (sL, sR - 0.12): band(e_, e_ + 0.12, z0 + 0.3, z0 + 1.26, 0.66, trim)
+            ptop = G + (logk if logk >= 0 else (topk if pergola else nfl)) * fh
+            band(s0 - 0.3, s0 + 0.3, G + 0.3, ptop - 0.2, 0.14, trim); band(s0 - 0.36, s0 + 0.36, ptop - 0.5, ptop - 0.2, 0.2, trim)                    # pilaster and its capital
+            band(s0, s1, G - 0.2, G + 0.12, 0.34, trim); band(s0, s1, G + 0.12, G + 0.3, 0.5, trim)                                                  # cornice over the arcade
+            zc = G + (topk if pergola else nfl) * fh                                                                                                  # main cornice
+            if logk >= 0: band(s0, s1, G + logk * fh - 0.2, G + logk * fh + 0.02, 0.3, trim); band(s0, s1, G + (logk + 1) * fh - 0.14, G + (logk + 1) * fh + 0.06, 0.22, trim)
+            band(s0, s1, zc - 0.2, zc + 0.04, 0.42, trim); band(s0, s1, zc + 0.04, zc + 0.24, 0.66, trim)
+            if not lite:
+                for q_ in range(int(bw / 0.62)): a = s0 + 0.2 + q_ * 0.62; band(a - 0.09, a + 0.09, zc - 0.42, zc - 0.2, 0.4, trim)                   # modillions
+                for q_ in range(int(bw / 0.3)): a = s0 + 0.1 + q_ * 0.3; band(a - 0.06, a + 0.06, G - 0.36, G - 0.2, 0.2, trim)                       # dentils
+            if not pergola: cellmesh(box(s0, zc, s1, H), 0, cream); band(s0, s1, H - 0.14, H, 0.08, trim)
+        band(Ls - 0.3, Ls, G + 0.3, G + (logk if logk >= 0 else nfl) * fh - 0.2, 0.14, trim)
+        if sign and not lite:
+            adv = [0.45 if ch == " " else (0.36 if ch in "IΙ" else 0.86) for ch in sign]; tot = sum(adv) * 0.8; sc = Ls / 2 - tot / 2
+            for ch, ad in zip(sign, adv):
+                if ch != " ":
+                    j = seg(sc + ad * 0.4); q = P3(sc + ad * 0.4, G - 1.28, -0.04); LABELS.append({"text": ch, "pos": [q[0], q[1], q[2]], "dir": list(path[j][3]), "n": list(path[j][4]), "size": 0.9})
+                sc += ad * 0.8
+    start = next((i for i, e in enumerate(E) if not e[5]), 0); cur = []; paths = []
     def flush():
         if not cur: return
-        if sum(e[2] for e in cur) >= 7: facade(list(cur))
+        if sum(e[2] for e in cur) >= 7: paths.append(list(cur))
         else:
             for e in cur: plain(e)
         cur.clear()
@@ -296,7 +418,11 @@ def hebrard(P, bd, zg, zt, rnd):
             flush()
             if e[5]: cur.append(e)
             else: plain(e)
-    flush()
+    flush(); hub = Point(Wd(70, 0))
+    def pmid(pth): k = len(pth) // 2; return Point((pth[k][0][0] + pth[k][1][0]) / 2, (pth[k][0][1] + pth[k][1][1]) / 2)
+    best = min(paths, key=lambda pth: pmid(pth).distance(hub) - 0.2 * sum(e[2] for e in pth)) if paths and st.get("sign") else None
+    for pth in paths: facade(pth, st.get("sign") if pth is best else None)
+HB = Mesh(); HW = Mesh()
 NHEB = 0
 for bd, P in zip(L["buildings"], allp):
     if bd["id"] == TOWER_ID:
@@ -310,7 +436,12 @@ for bd, P in zip(L["buildings"], allp):
     if bd["kind"] in ("church", "cathedral", "chapel") or bd.get("hist"): wall = (0.72, 0.56, 0.44)
     hs = [land_h(*p) for p in P.exterior.coords]; zb = min(hs) - 1.5; zg = sum(hs) / len(hs); zt = zg + bd["h"]
     if bd["id"] == THEATRE_KTHBE: theatre_kthbe(P, bd, zg, rnd); continue
-    if P.geom_type == "Polygon" and P.area > 200 and bd["h"] > 12 and P.centroid.distance(AC) < 330 and P.distance(APLZ) < 5: hebrard(P, bd, zg, zt, rnd); NHEB += 1; continue
+    if P.geom_type == "Polygon" and P.area > 200 and bd["h"] > 12 and P.centroid.distance(AC) < 330 and P.distance(APLZ) < 5:
+        st = STY.get(bd["id"]) or dict(sign=None, cream=[(0.82, 0.75, 0.60), (0.86, 0.80, 0.66), (0.80, 0.73, 0.60), (0.88, 0.84, 0.74)][rnd.randrange(4)], cols=REDCOL if rnd.random() < 0.4 else (0.86, 0.82, 0.72),
+                                       top=rnd.choice(["pergola", "pergola", "tile", "flat"]), accent=OCHRE if rnd.random() < 0.45 else None, awn=rnd.random() < 0.3)
+        BM0 = bm
+        for tgt, lite in ((HB, False), (HW, True)): bm = tgt; hebrard(P, bd, zg, zt, random.Random(bd["id"]), lite, st)
+        bm = BM0; NHEB += 1; continue
     if bd["id"] == THEATRE_ROYAL: theatre_royal(P, bd, zg, rnd); continue
     if bd["id"] == OFFICERS:                                                    # tiled hipped roof
         wall = (0.86, 0.80, 0.66); walls(P, zb, zt, zg, wall, WALLM, rnd); c = list(P.exterior.coords); q = P.centroid
@@ -320,7 +451,7 @@ for bd, P in zip(L["buildings"], allp):
         polykatoikia(P, bd, zg, zt, wall, rnd, lite=not near); continue
     if bd["min_h"]: zb = zg + bd["min_h"]
     walls(P, zb, zt, zg, wall, PLAIN if small else WALLM, rnd); roof(P, zt, ROOF[rnd.randrange(len(ROOF))])
-bm.save("buildings"); print("hebrard buildings", NHEB); json.dump(LABELS, open(f"{root}/data/labels.json", "w"), ensure_ascii=False)
+bm.save("buildings"); HB.save("aris_bld"); HW.save("aris_bld_web"); print("hebrard buildings", NHEB); json.dump(LABELS, open(f"{root}/data/labels.json", "w"), ensure_ascii=False)
 json.dump(tower, open(f"{root}/data/tower_site.json", "w")); print("tower site", tower)
 # ---------- trees: placed where the satellite photo shows canopy ----------
 from PIL import Image
@@ -596,14 +727,7 @@ SKIN = [(0.78, 0.60, 0.48), (0.70, 0.52, 0.40), (0.85, 0.68, 0.56), (0.55, 0.38,
 SHIRT = [(0.85, 0.85, 0.83), (0.10, 0.10, 0.12), (0.65, 0.12, 0.10), (0.12, 0.25, 0.50), (0.80, 0.70, 0.20), (0.20, 0.42, 0.30), (0.55, 0.55, 0.58), (0.86, 0.50, 0.20), (0.45, 0.25, 0.45)]
 PANTS = [(0.10, 0.12, 0.20), (0.08, 0.08, 0.09), (0.30, 0.32, 0.38), (0.45, 0.38, 0.28), (0.15, 0.20, 0.32)]
 def person(x, y, a, k=1.0, S=None):
-    S = S if S is not None else globals()["S"]
-    u = (math.cos(a), math.sin(a)); n = (-u[1], u[0]); sh = SHIRT[lrnd.randrange(len(SHIRT))]; pa = PANTS[lrnd.randrange(len(PANTS))]; sk = SKIN[lrnd.randrange(len(SKIN))]; z = FLAT + 0.04
-    st = lrnd.uniform(0.0, 0.22) * k
-    MT = MATTE if S is globals()['S'] else AMATTE
-    for sd in (-1, 1): obox(S, (x + n[0] * sd * 0.09 * k + u[0] * sd * st, y + n[1] * sd * 0.09 * k + u[1] * sd * st), u, 0.16 * k, 0.14 * k, z, z + 0.86 * k, pa, MT)
-    obox(S, (x, y), u, 0.22 * k, 0.40 * k, z + 0.86 * k, z + 1.48 * k, sh, MT)
-    for sd in (-1, 1): obox(S, (x + n[0] * sd * 0.25 * k, y + n[1] * sd * 0.25 * k), u, 0.10 * k, 0.09 * k, z + 0.88 * k, z + 1.44 * k, sh if lrnd.random() < 0.6 else sk, MT)
-    v, t = blob(x, y, z + 1.62 * k, 0.105 * k, 0.125 * k, lrnd, 8, 5); S.add(v, t, col=sk, mat=MT)
+    tgt = S if S is not None else globals()["S"]; person2(tgt, x, y, FLAT + 0.04, a, k, lrnd, MATTE if S is None else AMATTE)
 walkable = unary_union([prom, terra, strip]).difference(grass.buffer(0.7)).difference(ringpoly.buffer(0.6)).difference(lawn.buffer(0.3)).difference(drive.buffer(3)); pwalk = prep(walkable); wb = walkable.bounds; npeople = 0
 while npeople < 190:
     x, y = lrnd.uniform(wb[0], wb[2]), lrnd.uniform(wb[1], wb[3])
@@ -713,86 +837,202 @@ S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("plant
 json.dump({"trees": WEB_TREES, "clumps": WEB_CLUMPS, "tower": [TX, TY, FLAT], "bounds": [x0, y0, x1, y1]}, open(f"{root}/data/web_trees.json", "w"))
 
 # ================= Aristotelous Square =================
-A = Mesh(); APAVE, ABAND, AGRASS, AMARB, AMATTE, ALEAF, ABARK, ALAMP, AGLOW, AASPH = range(10); AZ = FLAT; arnd = random.Random(17)
-abu = unary_union([p_ for p_ in polys if p_.distance(AC) < 345]); adrive = unary_union([LineString(r["line"]).buffer(r["w"] / 2, cap_style=2) for r in L["roads"] if r["kind"] in DRIVE and LineString(r["line"]).distance(AC) < 340])
-apave = APLZ.difference(abu.buffer(0.1)); awalk = apave.difference(adrive); pawalk = prep(awalk)
+# Layout from the map (outline, 16 lawns as holes, the half-round plaza with its two crescents, the planters of the axis) and from
+# aerial photographs (central grey field, slab borders, red patterned panels, black discs, white columns, palms, cafe tents, kiosk).
+# Positions marked "est." are read off photographs by eye.
+A = Mesh(); APAVE, ACENTRE, AGRASS, AMARB, AMATTE, ALEAF, ABARK, ALAMP, AGLOW, AASPH, ABAND, ACARPET, ARED, APALE, AMARK, ASIDE = range(16); AZ = FLAT; arnd = random.Random(17); RA = 300.0
+abu = unary_union([p_ for p_ in polys if p_.distance(AC) < RA + 45]); aland = AC.buffer(RA, 64).difference(sea)
+adrive = unary_union([LineString(r["line"]).buffer(r["w"] / 2, cap_style=2) for r in L["roads"] if r["kind"] in DRIVE and LineString(r["line"]).distance(AC) < RA + 20]).intersection(aland).difference(abu.buffer(0.2))
+def polys_of(g): return [q for q in (g.geoms if hasattr(g, "geoms") else [g]) if q.geom_type == "Polygon" and not q.is_empty]
 def aflat(poly, z, mat, col=(1, 1, 1)):
-    for pp in (poly.geoms if hasattr(poly, "geoms") else [poly]):
-        if pp.geom_type == "Polygon" and pp.area > 0.2: v, t = tri(pp); A.add(np.c_[v, np.full(len(v), AZ + z)], t, col=col, mat=mat)
-aflat(awalk, 0.03, APAVE); aflat(apave.intersection(adrive), 0.05, AASPH)
-c_ = list(ASQ.minimum_rotated_rectangle.exterior.coords); e1 = np.array(c_[1]) - np.array(c_[0]); e2 = np.array(c_[2]) - np.array(c_[1])
-av, tv = (e1, e2) if abs(e1 @ np.array([0.62, 0.78])) / np.linalg.norm(e1) > abs(e2 @ np.array([0.62, 0.78])) / np.linalg.norm(e2) else (e2, e1)
-La, Wt = float(np.linalg.norm(av)), float(np.linalg.norm(tv)); av = av / La * (1 if av @ np.array([0.62, 0.78]) > 0 else -1); tv = np.array([av[1], -av[0]])
-M0 = np.array(ASQ.minimum_rotated_rectangle.centroid.coords[0])
-def Wd(al, tl): q = M0 + av * al + tv * tl; return (float(q[0]), float(q[1]))
+    for pp in polys_of(poly):
+        if pp.area > 0.15: v, t = tri(pp); A.add(np.c_[v, np.full(len(v), AZ + z)], t, col=col, mat=mat)
 def rect(a0, a1, t0, t1): return Polygon([Wd(a0, t0), Wd(a1, t0), Wd(a1, t1), Wd(a0, t1)])
-def ok(q, clear=0.0): return pawalk.contains(Point(q)) and (clear == 0 or abu.distance(Point(q)) > clear)
+def kerb(g, h=0.16, w=0.22, mat=AMARB):
+    k = g.boundary.buffer(w); aflat(k, h, mat)
+    for pp in polys_of(k):
+        for ring in [pp.exterior] + list(pp.interiors):
+            c = list(ring.coords)
+            for p_, r_ in zip(c[:-1], c[1:]): A.add([(p_[0], p_[1], AZ), (r_[0], r_[1], AZ), (r_[0], r_[1], AZ + h), (p_[0], p_[1], AZ + h)], Q, mat=mat)
+SEMI = next(unary_union([Polygon(p_[0], p_[1:]).buffer(0) for p_ in it["poly"]]) for it in L["plaza"] if not it.get("name") and Polygon(it["poly"][0][0]).distance(Point(Wd(70, 0))) < 5)
+AXIS = _pl["Πεζόδρομος Αριστοτέλους"].intersection(AC.buffer(RA))
+def holes_of(g): return [Polygon(r_.coords).buffer(0) for q in polys_of(g) for r_ in q.interiors]
+H_SQ, H_SEMI, H_AX = holes_of(ASQ), holes_of(SEMI), [h for h in holes_of(_pl["Πεζόδρομος Αριστοτέλους"]) if h.distance(AC) < RA - 10]
+lawns = unary_union(H_SQ + H_SEMI + H_AX)
+sq_outer = Polygon(polys_of(ASQ)[0].exterior.coords); semi_outer = Polygon(polys_of(SEMI)[0].exterior.coords)
+ped = unary_union([sq_outer, semi_outer, AXIS]).difference(abu.buffer(0.1)).difference(adrive).difference(lawns); pped = prep(ped)
+# ---- ground: asphalt on every street, slab pavements everywhere else ----
+aflat(aland.difference(abu.buffer(0.1)).difference(adrive).difference(sq_outer).difference(semi_outer).difference(AXIS), 0.06, ASIDE)
+aflat(adrive, 0.03, AASPH); aflat(sea.buffer(1.2).intersection(aland), 0.09, AMARB)
+centre = rect(-44, 40, -20, 20).difference(lawns.buffer(1.2))                                   # the plain grey field in the middle
+aflat(centre, 0.065, ACENTRE); aflat(sq_outer.difference(lawns).difference(centre).difference(adrive), 0.06, APAVE)
+aflat(centre.boundary.buffer(0.35), 0.07, AMARB)
+aflat(semi_outer.difference(lawns).difference(adrive), 0.06, APALE); aflat(AXIS.difference(lawns).difference(abu.buffer(0.1)).difference(adrive), 0.06, APAVE)
+def carpet(al, tl, size):                                                                      # red patterned panels (est.)
+    hs = size / 2; c = [Wd(al - hs, tl - hs), Wd(al + hs, tl - hs), Wd(al + hs, tl + hs), Wd(al - hs, tl + hs)]
+    if all(pped.contains(Point(q)) for q in c): A.add([(q[0], q[1], AZ + 0.075) for q in c], Q, uv=[(0, 0), (1, 0), (1, 1), (0, 1)], mat=ACARPET)
+carpet(45.6, 0, 8.6)
+for sd in (-1, 1): carpet(45.6, sd * 31.5, 6.0); carpet(-46.0, sd * 31.5, 5.0)
+for sd in (-1, 1):
+    for al in (-27.5, -2.0, 23.5): aflat(rect(al, al + 9, sd * 36.2, sd * 39.4).intersection(ped), 0.075, ARED)
+for al in np.arange(92.0, 290.0, 6.0): aflat(rect(al, al + 0.55, -15, 15).intersection(ped), 0.075, ABAND)   # dark bands across the pedestrian street
+# ---- trees, palms, lawns ----
 def atree(x, y, z, H, col):
-    obox(A, (x, y), (1, 0), 0.26, 0.26, z, z + H * 0.5, (1, 1, 1), ABARK)
-    for k in range(5):
-        a = arnd.uniform(0, 6.28); dd = 0 if k == 0 else arnd.uniform(0.7, 1.6); bx, by, bz = x + dd * math.cos(a), y + dd * math.sin(a), z + H * arnd.uniform(0.6, 0.82); rx = arnd.uniform(1.5, 2.3)
-        v, t = blob(bx, by, bz, rx * 0.85, rx * 0.65, arnd, 9, 5); A.add(v, t, col=tuple(k2 * 0.6 for k2 in col), mat=ALEAF); foliage(A, bx, by, bz, rx, rx * 0.78, 260, 0.3, col, arnd, ALEAF)
-def alamp(q, u):
-    obox(A, q, u, 0.5, 0.5, AZ, AZ + 0.8, (1, 1, 1), ALAMP); obox(A, q, u, 0.15, 0.15, AZ + 0.8, AZ + 5.6, (1, 1, 1), ALAMP); obox(A, q, u, 1.3, 0.08, AZ + 5.3, AZ + 5.4, (1, 1, 1), ALAMP)
-    for e in (-0.65, 0.65): obox(A, (q[0] + u[0] * e, q[1] + u[1] * e), u, 0.4, 0.4, AZ + 5.4, AZ + 6.0, (1, 1, 1), AGLOW); obox(A, (q[0] + u[0] * e, q[1] + u[1] * e), u, 0.5, 0.5, AZ + 6.0, AZ + 6.1, (1, 1, 1), ALAMP)
-def umbrella(q, u, col):
-    x, y = q; z = AZ + 0.03; hs = 1.75; n = (-u[1], u[0]); obox(A, q, u, 0.07, 0.07, z, z + 2.75, (0.25, 0.2, 0.15), AMATTE)
-    cs = [(x + (sa * u[0] + sb * n[0]) * hs, y + (sa * u[1] + sb * n[1]) * hs, z + 2.35) for sa, sb in ((-1, -1), (1, -1), (1, 1), (-1, 1))]
-    A.add(cs + [(x, y, z + 2.95)], [(0, 1, 4), (1, 2, 4), (2, 3, 4), (3, 0, 4), (0, 2, 1), (0, 3, 2)], col=col, mat=AMATTE)
-    for sa, sb in ((-0.9, -0.9), (0.9, 0.9), (-0.9, 0.9), (0.9, -0.9)):
-        tq = (x + sa * u[0] + sb * n[0], y + sa * u[1] + sb * n[1]); obox(A, tq, u, 0.7, 0.7, z + 0.70, z + 0.74, (0.30, 0.22, 0.15), AMATTE); obox(A, tq, u, 0.06, 0.06, z, z + 0.70, (0.1, 0.1, 0.1), AMATTE)
-        for ca, cb in ((0.6, 0), (-0.6, 0)): obox(A, (tq[0] + ca * u[0] + cb * n[0], tq[1] + ca * u[1] + cb * n[1]), u, 0.42, 0.42, z, z + 0.46, (0.55, 0.45, 0.30), AMATTE)
-a_lo = -La / 2
-for al in np.arange(a_lo + 8, La / 2, 9.0):                                                    # darker paving bands across the square
-    aflat(rect(al, al + 0.5, -Wt / 2 + 14, Wt / 2 - 14).intersection(awalk), 0.045, ABAND)
-for tl in (-Wt / 2 + 14, Wt / 2 - 14.5): aflat(rect(a_lo + 8, La / 2, tl, tl + 0.5).intersection(awalk), 0.045, ABAND)
-nlawn = 0; ntree = 0
-HOLES = [Polygon(r_.coords).buffer(0) for g_ in (ASQ.geoms if hasattr(ASQ, "geoms") else [ASQ]) for r_ in g_.interiors]
-for g in HOLES:                                                                                # the square's real planters: they are the holes in its outline on the map
-    if g.is_empty or g.area < 4 or abu.intersection(g).area > 0.3 * g.area: continue
-    inner = g.buffer(-0.4, join_style=2); nlawn += 1; cc = list(g.exterior.coords)
-    for p_, r_ in zip(cc[:-1], cc[1:]): A.add([(p_[0], p_[1], AZ), (r_[0], r_[1], AZ), (r_[0], r_[1], AZ + 0.5), (p_[0], p_[1], AZ + 0.5)], Q, mat=AMARB)
-    if inner.is_empty: aflat(g, 0.5, AMARB); continue
-    aflat(inner, 0.42, AGRASS); aflat(g.difference(inner), 0.5, AMARB); bx = inner.bounds; want = max(1, int(inner.area / 55)); got = []; tries = 0
-    while len(got) < want and tries < 400:
+    limb(A, (x, y, z), (x + arnd.uniform(-.2, .2), y + arnd.uniform(-.2, .2), z + H * 0.55), 0.17, 0.11, (0.22, 0.16, 0.11), AMATTE, 7, False)
+    for k in range(6):
+        a = arnd.uniform(0, 6.28); dd = 0 if k == 0 else arnd.uniform(0.7, 1.7); bx, by, bz = x + dd * math.cos(a), y + dd * math.sin(a), z + H * arnd.uniform(0.6, 0.84); rx = arnd.uniform(1.5, 2.3)
+        v, t = blob(bx, by, bz, rx * 0.86, rx * 0.68, arnd, 10, 6); A.add(v, t, col=tuple(k2 * 0.5 for k2 in col), mat=ALEAF); foliage(A, bx, by, bz, rx, rx * 0.8, 750, 0.2, col, arnd, ALEAF)
+        limb(A, (x, y, z + H * 0.5), (bx, by, bz - rx * 0.3), 0.06, 0.03, (0.22, 0.16, 0.11), AMATTE, 5, False)
+def green(): return (arnd.uniform(0.09, 0.15), arnd.uniform(0.22, 0.32), arnd.uniform(0.05, 0.08))
+ntree = npalm = 0
+def plant(g, kind):
+    global ntree, npalm
+    if g.is_empty or g.area < 4: return
+    aflat(g.buffer(-0.2), 0.12, AGRASS); kerb(g); c = g.centroid; loc = (np.array([c.x, c.y]) - M0); al, tl = float(loc @ av), float(loc @ tv)
+    if g.area < 22: atree(c.x, c.y, AZ + 0.12, arnd.uniform(5.5, 7.5), green()); ntree += 1; return
+    if g.area < 45: palm(A, c.x, c.y, AZ + 0.12, arnd.uniform(3.5, 5.5), arnd, AMATTE, ALEAF); npalm += 1; return
+    inner = g.buffer(-2.2); got = []
+    if inner.is_empty: inner = g.buffer(-0.8)
+    if kind == "semi":                                                                          # three palms along each crescent
+        for q in [inner.exterior.interpolate(f, normalized=True) for f in (0.12, 0.45, 0.78)]: palm(A, q.x, q.y, AZ + 0.12, arnd.uniform(4.5, 6.5), arnd, AMATTE, ALEAF); npalm += 1
+        return
+    if kind == "axis":                                                                          # palms and clipped shrubs down the middle of the street
+        mr = list(g.minimum_rotated_rectangle.exterior.coords); d0 = max((math.dist(mr[i], mr[i + 1]), mr[i], mr[i + 1]) for i in range(4)); n_ = max(1, int(d0[0] / 7))
+        for i in range(n_):
+            f = (i + 0.5) / n_; q = Point(c.x + (d0[2][0] - d0[1][0]) * (f - 0.5), c.y + (d0[2][1] - d0[1][1]) * (f - 0.5))
+            if g.contains(q):
+                if i % 2 == 0: palm(A, q.x, q.y, AZ + 0.12, arnd.uniform(4, 6.5), arnd, AMATTE, ALEAF); npalm += 1
+                else:
+                    v, t = blob(q.x, q.y, AZ + 1.2, 1.3, 1.1, arnd, 10, 6); A.add(v, t, col=(0.05, 0.13, 0.04), mat=ALEAF); foliage(A, q.x, q.y, AZ + 1.2, 1.45, 1.2, 500, 0.16, (0.08, 0.2, 0.05), arnd, ALEAF)
+        return
+    far = max(g.exterior.coords, key=lambda q: abs(float((np.array(q) - M0) @ av)))            # a palm at the end of each big lawn (est.), trees over the rest
+    q = Point(far[0] + (c.x - far[0]) * 0.22, far[1] + (c.y - far[1]) * 0.22); palm(A, q.x, q.y, AZ + 0.12, arnd.uniform(5, 7), arnd, AMATTE, ALEAF); npalm += 1; got.append(q)
+    bx = inner.bounds; want = max(1, int(g.area / 70)); tries = 0
+    while len(got) < want + 1 and tries < 500:
         tries += 1; q = Point(arnd.uniform(bx[0], bx[2]), arnd.uniform(bx[1], bx[3]))
-        if inner.buffer(-1.0).contains(q) and all(q.distance(o) > 5.5 for o in got): got.append(q); atree(q.x, q.y, AZ + 0.42, arnd.uniform(6.5, 9.5), (arnd.uniform(0.10, 0.16), arnd.uniform(0.24, 0.34), arnd.uniform(0.05, 0.09))); ntree += 1
-print("holes", [round(h.area) for h in HOLES])
-for sd in (-1, 1):                                                                             # lawns with trees along both sides of the lower square
-    for al in np.arange(a_lo + 12, a_lo + 80, 14.0):                                           # lamp posts and benches along the central paved area
-        q = Wd(al, sd * 21.5)
-        if ok(q): alamp(q, tuple(av))
-        q = Wd(al + 7, sd * 22.2)
-        if ok(q): obox(A, q, tuple(av), 2.6, 0.55, AZ + 0.02, AZ + 0.46, (1, 1, 1), AMARB)
-UMB = [(0.90, 0.88, 0.80), (0.85, 0.82, 0.70), (0.45, 0.10, 0.10), (0.15, 0.25, 0.20), (0.88, 0.86, 0.84)]; numb = 0
-bnd = awalk.buffer(-6.0)                                                                       # cafe umbrellas in front of the arcades
-for ring in ([bnd.exterior] if bnd.geom_type == "Polygon" else [g_.exterior for g_ in bnd.geoms]):
+        if inner.contains(q) and all(q.distance(o) > 6 for o in got): got.append(q); atree(q.x, q.y, AZ + 0.12, arnd.uniform(6.5, 9.5), green()); ntree += 1
+for g in H_SQ: plant(g, "sq")
+for g in H_SEMI: plant(g, "semi")
+for g in H_AX: plant(g, "axis")
+# ---- lamps, banners, benches ----
+def lamp_classic(q, u, arms=2):
+    obox(A, q, u, 0.5, 0.5, AZ, AZ + 0.9, (1, 1, 1), ALAMP); limb(A, (q[0], q[1], AZ + 0.9), (q[0], q[1], AZ + 5.2), 0.11, 0.07, (0.03, 0.07, 0.05), AMATTE, 8, False)
+    pts = [(0, 0, 5.75)] + [(0.75 * math.cos(k * 6.283 / arms), 0.75 * math.sin(k * 6.283 / arms), 5.0) for k in range(arms)]
+    for dx, dy, dz in pts:
+        c = (q[0] + u[0] * dx - u[1] * dy, q[1] + u[1] * dx + u[0] * dy, AZ + dz); limb(A, (q[0], q[1], AZ + 4.9), (c[0], c[1], c[2] - 0.25), 0.035, 0.03, (0.03, 0.07, 0.05), AMATTE, 5, False)
+        v, t = blob(c[0], c[1], c[2], 0.2, 0.24, arnd, 8, 5); A.add(v, t, mat=AGLOW)
+def lamp_tall(q, u):                                                                           # tall grey post with a banner
+    limb(A, (q[0], q[1], AZ), (q[0], q[1], AZ + 10.5), 0.13, 0.07, (0.45, 0.46, 0.47), AMATTE, 8, False); obox(A, q, u, 0.9, 0.35, AZ + 10.5, AZ + 10.7, (0.45, 0.46, 0.47), AMATTE)
+    obox(A, (q[0] + u[0] * 0.5, q[1] + u[1] * 0.5), u, 0.75, 0.03, AZ + 3.2, AZ + 5.3, (0.15, 0.45, 0.70), AMATTE); obox(A, (q[0] + u[0] * 0.5, q[1] + u[1] * 0.5), u, 0.55, 0.04, AZ + 3.6, AZ + 4.6, (0.85, 0.88, 0.9), AMATTE)
+def bench(q, u, col=(0.62, 0.08, 0.06)):
+    n = (-u[1], u[0])
+    for k in range(4): obox(A, (q[0] + n[0] * (k - 1.5) * 0.11, q[1] + n[1] * (k - 1.5) * 0.11), u, 1.8, 0.09, AZ + 0.44, AZ + 0.48, col, AMATTE)
+    for k in range(3): obox(A, (q[0] - n[0] * 0.26, q[1] - n[1] * 0.26), u, 1.8, 0.035, AZ + 0.56 + k * 0.13, AZ + 0.65 + k * 0.13, col, AMATTE)
+    for e in (-0.75, 0.75): obox(A, (q[0] + u[0] * e, q[1] + u[1] * e), n, 0.5, 0.05, AZ, AZ + 0.44, (0.05, 0.05, 0.05), AMATTE); obox(A, (q[0] + u[0] * e - n[0] * 0.26, q[1] + u[1] * e - n[1] * 0.26), n, 0.05, 0.05, AZ + 0.44, AZ + 0.95, (0.05, 0.05, 0.05), AMATTE)
+ua, ut = (float(av[0]), float(av[1])), (float(tv[0]), float(tv[1])); nlamp = 0
+for sd in (-1, 1):
+    for al in np.arange(-38, 39, 19.0):
+        q = Wd(al, sd * 21.2)
+        if pped.contains(Point(q)): lamp_tall(q, ut if sd < 0 else (-ut[0], -ut[1])); nlamp += 1
+    for al, tl in ((47.8, 8), (47.8, 26), (47.8, 40), (-48.5, 8), (-48.5, 26), (-48.5, 40), (0, 44.5), (25, 44.5), (-25, 44.5)):
+        q = Wd(al, sd * tl)
+        if pped.contains(Point(q)): lamp_classic(q, ua, 2); nlamp += 1
+    for al in np.arange(96, 290, 19.0):
+        q = Wd(al, sd * 10.5)
+        if pped.contains(Point(q)) and abu.distance(Point(q)) > 3: lamp_classic(q, ua, 2); nlamp += 1
+nbench = 0
+for tl in np.arange(-16.5, 17, 5.5):                                                           # red benches along the north edge of the grey field (est.)
+    q = Wd(42.2, tl)
+    if pped.contains(Point(q)): bench(q, ut); nbench += 1
+for sd in (-1, 1):
+    for al in np.arange(-36, 37, 12.0):
+        q = Wd(al, sd * 22.4)
+        if pped.contains(Point(q)): bench(q, ua if sd > 0 else (-ua[0], -ua[1])); nbench += 1
+# ---- the half-round plaza: black discs with a lamp, the row of white advertising columns ----
+for g in H_SEMI:
+    c = g.centroid; loc = np.array([c.x, c.y]) - M0; sgn = 1 if float(loc @ tv) > 0 else -1; q = Wd(65.6, sgn * 16.5)               # est.
+    aflat(Point(q).buffer(3.9, 24).intersection(ped), 0.08, ABAND); aflat(Point(q).buffer(4.15, 24).difference(Point(q).buffer(3.9, 24)).intersection(ped), 0.085, AMARB); lamp_classic(q, ua, 4)
+for k in range(6):
+    q = Wd(67.0, -10.5 + k * 4.2); limb(A, (q[0], q[1], AZ), (q[0], q[1], AZ + 2.5), 0.62, 0.62, (0.92, 0.92, 0.90), AMATTE, 16); limb(A, (q[0], q[1], AZ + 2.5), (q[0], q[1], AZ + 2.62), 0.68, 0.68, (0.2, 0.2, 0.2), AMATTE, 16)
+    limb(A, (q[0], q[1], AZ + 0.7), (q[0], q[1], AZ + 2.0), 0.63, 0.63, [(0.85, 0.2, 0.3), (0.2, 0.3, 0.6), (0.95, 0.75, 0.1), (0.1, 0.1, 0.1), (0.3, 0.6, 0.5), (0.6, 0.2, 0.6)][k], AMATTE, 16, False)
+# ---- road markings, crossings, bus shelters, bollards, buses ----
+def paintA(p0, p1, wd): 
+    d = np.array(p1) - np.array(p0); n_ = np.linalg.norm(d)
+    if n_ < 0.1: return
+    s_ = np.array([-d[1], d[0]]) / n_ * wd / 2; A.add([(p0[0] - s_[0], p0[1] - s_[1], AZ + 0.045), (p1[0] - s_[0], p1[1] - s_[1], AZ + 0.045), (p1[0] + s_[0], p1[1] + s_[1], AZ + 0.045), (p0[0] + s_[0], p0[1] + s_[1], AZ + 0.045)], Q, mat=AMARK)
+for al0, lanes, wd_ in ((57.9, 3, 11.0), (-56.0, 4, 14.0)):                                    # Mitropoleos and Nikis: lane lines along the square
+    for k in range(lanes + 1):
+        al = al0 - wd_ / 2 + 0.2 + k * (wd_ - 0.4) / lanes
+        for tl in np.arange(-150, 150, 9.0 if 0 < k < lanes else 2.0):
+            p0, p1 = Wd(al, tl), Wd(al, tl + (3.0 if 0 < k < lanes else 2.0))
+            if adrive.contains(Point(p0)) and adrive.contains(Point(p1)) and not any(abs(tl - zc) < 4.5 for zc in (-30, 0, 30)): paintA(p0, p1, 0.15)
+    for zc in (-30, 0, 30):                                                                    # zebra crossings
+        for k in range(int(wd_ - 0.8)):
+            al = al0 - wd_ / 2 + 0.6 + k; p0, p1 = Wd(al, zc - 2.0), Wd(al, zc + 2.0)
+            if adrive.contains(Point(p0)) and adrive.contains(Point(p1)): paintA(p0, p1, 0.5)
+for al, sgn in ((51.6, -1), (64.2, 1), (-48.3, 1)):                                            # bollards along the kerbs
+    for tl in np.arange(-44, 45, 2.2):
+        q = Wd(al, tl)
+        if pped.contains(Point(q)) and not any(abs(tl - zc) < 3 for zc in (-30, 0, 30)): limb(A, (q[0], q[1], AZ), (q[0], q[1], AZ + 0.85), 0.06, 0.06, (0.75, 0.75, 0.72), AMATTE, 6)
+for tl in (9.5, 17.0):                                                                         # bus shelters on Mitropoleos (est.)
+    q = Wd(50.3, tl); fr = (0.10, 0.30, 0.22)
+    for e in (-1.9, 1.9):
+        for o in (-0.6, 0.6): obox(A, (q[0] + ut[0] * e + ua[0] * o, q[1] + ut[1] * e + ua[1] * o), ut, 0.08, 0.08, AZ, AZ + 2.4, fr, AMATTE)
+    obox(A, q, ut, 4.2, 1.6, AZ + 2.4, AZ + 2.52, fr, AMATTE); obox(A, (q[0] - ua[0] * 0.6, q[1] - ua[1] * 0.6), ut, 3.8, 0.03, AZ + 0.4, AZ + 2.3, (0.35, 0.45, 0.48), AMATTE); obox(A, (q[0] - ua[0] * 0.3, q[1] - ua[1] * 0.3), ut, 2.4, 0.4, AZ + 0.42, AZ + 0.48, fr, AMATTE)
+for al, tl, sg in ((-58.5, -22, 1), (-54.5, 38, 1), (59.5, -60, -1)):                           # city buses
+    q = Wd(al, tl); u = (ut[0] * sg, ut[1] * sg)
+    if adrive.contains(Point(q)):
+        obox(A, q, u, 12, 2.55, AZ + 0.35, AZ + 3.1, (0.10, 0.25, 0.55), AMATTE); obox(A, q, u, 12.02, 2.57, AZ + 1.25, AZ + 2.35, (0.03, 0.04, 0.05), AMATTE); obox(A, q, u, 11.6, 2.4, AZ + 3.1, AZ + 3.3, (0.85, 0.85, 0.85), AMATTE)
+        for e in (-4, 3.6):
+            for o in (-1.2, 1.2): limb(A, (q[0] + u[0] * e - u[1] * (o - 0.12 * np.sign(o)), q[1] + u[1] * e + u[0] * (o - 0.12 * np.sign(o)), AZ + 0.5), (q[0] + u[0] * e - u[1] * o, q[1] + u[1] * e + u[0] * o, AZ + 0.5), 0.5, 0.5, (0.03, 0.03, 0.03), AMATTE, 10)
+# ---- kiosk in the middle of the square (est.) ----
+q = Wd(-33.5, 0); obox(A, q, ua, 3.4, 3.4, AZ, AZ + 2.5, (0.08, 0.16, 0.12), AMATTE); obox(A, q, ua, 3.42, 3.42, AZ + 1.0, AZ + 2.0, (0.05, 0.06, 0.07), AMATTE); obox(A, q, ua, 4.8, 4.8, AZ + 2.5, AZ + 2.62, (0.08, 0.16, 0.12), AMATTE)
+cs = [(q[0] + (sa * ua[0] + sb * ut[0]) * 2.0, q[1] + (sa * ua[1] + sb * ut[1]) * 2.0, AZ + 2.62) for sa, sb in ((-1, -1), (1, -1), (1, 1), (-1, 1))]; A.add(cs + [(q[0], q[1], AZ + 3.5)], [(0, 1, 4), (1, 2, 4), (2, 3, 4), (3, 0, 4)], col=(0.10, 0.20, 0.15), mat=AMATTE)
+# ---- cafes: white tent canopies in rows in front of the arcades, tables and chairs under them ----
+TENT = [(0.92, 0.91, 0.87), (0.90, 0.88, 0.80), (0.88, 0.86, 0.84), (0.55, 0.42, 0.30), (0.92, 0.91, 0.87)]; ntent = nchair = 0
+def tent(q, u, col):
+    global nchair
+    x, y = q; z = AZ + 0.06; hs = 2.0; n = (-u[1], u[0])
+    for sa, sb in ((-1, -1), (1, -1), (1, 1), (-1, 1)): limb(A, (x + (sa * u[0] + sb * n[0]) * hs * 0.96, y + (sa * u[1] + sb * n[1]) * hs * 0.96, z), (x + (sa * u[0] + sb * n[0]) * hs * 0.96, y + (sa * u[1] + sb * n[1]) * hs * 0.96, z + 2.5), 0.035, 0.035, (0.9, 0.9, 0.9), AMATTE, 5, False)
+    cs = [(x + (sa * u[0] + sb * n[0]) * hs, y + (sa * u[1] + sb * n[1]) * hs, z + 2.5) for sa, sb in ((-1, -1), (1, -1), (1, 1), (-1, 1))]; lo = [(c[0], c[1], z + 2.25) for c in cs]
+    A.add(cs + [(x, y, z + 3.35)] + lo, [(0, 1, 4), (1, 2, 4), (2, 3, 4), (3, 0, 4), (0, 1, 6), (0, 6, 5), (1, 2, 7), (1, 7, 6), (2, 3, 8), (2, 8, 7), (3, 0, 5), (3, 5, 8), (0, 4, 1), (1, 4, 2), (2, 4, 3), (3, 4, 0)], col=col, mat=AMATTE)
+    for sa, sb in ((-0.95, -0.95), (0.95, 0.95), (-0.95, 0.95), (0.95, -0.95)):
+        tq = (x + sa * u[0] + sb * n[0], y + sa * u[1] + sb * n[1]); obox(A, tq, u, 0.7, 0.7, z + 0.71, z + 0.74, (0.32, 0.24, 0.16), AMATTE); limb(A, (tq[0], tq[1], z), (tq[0], tq[1], z + 0.71), 0.04, 0.03, (0.1, 0.1, 0.1), AMATTE, 5, False)
+        cc = (0.50, 0.40, 0.26) if arnd.random() < 0.7 else (0.15, 0.15, 0.16)
+        for ca, cb, fu in ((0.62, 0, (-u[0], -u[1])), (-0.62, 0, u), (0, 0.62, (-n[0], -n[1])), (0, -0.62, n)):
+            if arnd.random() < 0.8: chair(A, (tq[0] + ca * u[0] + cb * n[0], tq[1] + ca * u[1] + cb * n[1]), fu, z, cc, AMATTE); nchair += 1
+for sd in (-1, 1):
+    for row, tl in enumerate((37.6, 41.9)):
+        for i, al in enumerate(np.arange(-42, 43, 4.3)):
+            if i % 6 == 5: continue
+            q = Wd(al, sd * tl)
+            if pped.contains(Point(q)) and lawns.distance(Point(q)) > 2.3 and abu.distance(Point(q)) > 1.5: tent(q, ua, TENT[(i // 6 + (sd > 0)) % len(TENT)]); ntent += 1
+bnd = ped.buffer(-5.5)                                                                         # and along the arcades of the pedestrian street and the half-round plaza
+for ring in [g_.exterior for g_ in polys_of(bnd)]:
     for i in range(int(ring.length / 4.6)):
-        q = ring.interpolate(i * 4.6); q2 = ring.interpolate(i * 4.6 + 0.5); u = (q2.x - q.x, q2.y - q.y); n_ = math.hypot(*u) or 1; u = (u[0] / n_, u[1] / n_)
-        if q.distance(AC) > 300 or abu.distance(q) > 9 or abu.distance(q) < 4 or not pawalk.contains(q) or adrive.distance(q) < 4: continue
-        col = UMB[int(i * 4.6 / 23) % len(UMB)]; umbrella((q.x, q.y), u, col); numb += 1
-        q3 = (q.x - u[1] * -4.2, q.y + u[0] * -4.2)
-        if ok(q3) and 3 < abu.distance(Point(q3)) and adrive.distance(Point(q3)) > 3: umbrella(q3, u, col); numb += 1
-# Aristotle: bronze seated figure on a marble plinth (position on the east side is an estimate)
-sq = Wd(a_lo + 46, 17.5); obox(A, sq, tuple(av), 2.0, 2.0, AZ, AZ + 0.35, (1, 1, 1), AMARB); obox(A, sq, tuple(av), 1.5, 1.5, AZ + 0.35, AZ + 1.5, (1, 1, 1), AMARB)
-BR = (0.16, 0.12, 0.07); un = (-float(tv[0]), -float(tv[1]))                                    # he faces the middle of the square
-obox(A, sq, un, 0.9, 0.9, AZ + 1.5, AZ + 2.05, BR, AMATTE); obox(A, (sq[0] - un[0] * 0.25, sq[1] - un[1] * 0.25), un, 0.4, 0.75, AZ + 2.05, AZ + 2.9, BR, AMATTE)
-obox(A, (sq[0] + un[0] * 0.3, sq[1] + un[1] * 0.3), un, 0.7, 0.7, AZ + 1.9, AZ + 2.2, BR, AMATTE); obox(A, (sq[0] + un[0] * 0.62, sq[1] + un[1] * 0.62), un, 0.25, 0.6, AZ + 1.5, AZ + 2.0, BR, AMATTE)
-v_, t_ = blob(sq[0] - un[0] * 0.2, sq[1] - un[1] * 0.2, AZ + 3.1, 0.2, 0.24, arnd, 8, 5); A.add(v_, t_, col=BR, mat=AMATTE)
-for al in np.arange(La / 2 + 14, 300, 22.0):                                                   # the pedestrian axis inland: planters with trees down the middle, lamps at the sides
-    q = Wd(al, 0)
-    if ok(q, 6) and adrive.distance(Point(q)) > 5:
-        g = rect(al - 4, al + 4, -2.2, 2.2); inner = g.buffer(-0.35, join_style=2); aflat(inner, 0.42, AGRASS); aflat(g.difference(inner), 0.5, AMARB); cc = list(g.exterior.coords)
-        for p_, r_ in zip(cc[:-1], cc[1:]): A.add([(p_[0], p_[1], AZ), (r_[0], r_[1], AZ), (r_[0], r_[1], AZ + 0.5), (p_[0], p_[1], AZ + 0.5)], Q, mat=AMARB)
-        atree(q[0], q[1], AZ + 0.42, arnd.uniform(7, 9), (0.12, 0.28, 0.07)); ntree += 1
-    for sd in (-1, 1):
-        q = Wd(al + 11, sd * 8.5)
-        if ok(q, 3) and adrive.distance(Point(q)) > 3: alamp(q, tuple(av))
-wb = awalk.bounds; nap = 0; tries = 0
-while nap < 320 and tries < 40000:
+        q = ring.interpolate(i * 4.6); q2 = ring.interpolate(i * 4.6 + 0.5); u = (q2.x - q.x, q2.y - q.y); n_ = math.hypot(*u) or 1; u = (u[0] / n_, u[1] / n_); loc = np.array([q.x, q.y]) - M0
+        if float(loc @ av) < 62 or q.distance(AC) > RA - 15 or abu.distance(q) > 8 or abu.distance(q) < 3.5 or adrive.distance(q) < 4 or lawns.distance(q) < 2.5 or i % 7 == 6: continue
+        tent((q.x, q.y), u, TENT[(i // 7) % len(TENT)]); ntent += 1
+# ---- Aristotle: bronze seated figure on a marble plinth (the position is an estimate) ----
+sq = Wd(-5.0, 23.5); BR = (0.14, 0.11, 0.07); f_ = np.array([-tv[0], -tv[1], 0.0]); s_ = np.array([av[0], av[1], 0.0]); zu = np.array([0, 0, 1.0]); O = np.array([sq[0], sq[1], AZ])
+obox(A, sq, ut, 2.4, 2.4, AZ, AZ + 0.3, (1, 1, 1), AMARB); obox(A, sq, ut, 1.9, 1.9, AZ + 0.3, AZ + 1.6, (1, 1, 1), AMARB); obox(A, sq, ut, 2.1, 2.1, AZ + 1.6, AZ + 1.75, (1, 1, 1), AMARB)
+def SP(fw, sd, h): return O + f_ * fw + s_ * sd + zu * (1.75 + h)
+obox(A, (sq[0] - f_[0] * 0.25, sq[1] - f_[1] * 0.25), (float(f_[0]), float(f_[1])), 0.9, 1.0, AZ + 1.75, AZ + 2.35, BR, AMATTE)
+for sg in (-1, 1):
+    limb(A, SP(-0.1, sg * 0.2, 0.72), SP(0.5, sg * 0.24, 0.70), 0.15, 0.12, BR, AMATTE); limb(A, SP(0.5, sg * 0.24, 0.70), SP(0.62, sg * 0.24, 0.08), 0.11, 0.08, BR, AMATTE); limb(A, SP(0.62, sg * 0.24, 0.05), SP(0.9, sg * 0.24, 0.03), 0.07, 0.06, BR, AMATTE)
+    limb(A, SP(-0.15, sg * 0.34, 1.52), SP(0.05, sg * 0.4, 1.12), 0.09, 0.075, BR, AMATTE); limb(A, SP(0.05, sg * 0.4, 1.12), SP(0.42, sg * 0.3, 0.92), 0.07, 0.055, BR, AMATTE)
+limb(A, SP(-0.18, 0, 0.6), SP(-0.12, 0, 1.6), 0.26, 0.28, BR, AMATTE, 10); limb(A, SP(-0.12, 0, 1.6), SP(-0.08, 0, 1.75), 0.09, 0.08, BR, AMATTE)
+c = SP(-0.05, 0, 1.92); v, t = blob(c[0], c[1], c[2], 0.17, 0.2, arnd, 10, 6); A.add(v, t, col=BR, mat=AMATTE)
+# ---- people and pigeons ----
+wb = ped.bounds; nap = 0; tries = 0
+while nap < 460 and tries < 60000:
     tries += 1; x, y = arnd.uniform(wb[0], wb[2]), arnd.uniform(wb[1], wb[3])
-    if not pawalk.contains(Point(x, y)) or math.hypot(x - ACX, y - ACY) > 290 or abu.distance(Point(x, y)) < 1.0: continue
-    a = arnd.uniform(0, 6.28); person(x, y, a, 0.62 if arnd.random() < 0.08 else arnd.uniform(0.93, 1.07), A); nap += 1
-    if arnd.random() < 0.45 and pawalk.contains(Point(x - math.sin(a) * 0.62, y + math.cos(a) * 0.62)): person(x - math.sin(a) * 0.62, y + math.cos(a) * 0.62, a, arnd.uniform(0.9, 1.05), A); nap += 1
-A.save("aris"); json.dump({"x": ACX, "y": ACY, "z": AZ, "a": [float(av[0]), float(av[1])], "La": La, "Wt": Wt, "m": [float(M0[0]), float(M0[1])]}, open(f"{root}/data/aris_site.json", "w"))
-print("aris: La", round(La), "Wt", round(Wt), "lawns", nlawn, "trees", ntree, "umbrellas", numb, "people", nap)
+    if not pped.contains(Point(x, y)) or math.hypot(x - ACX, y - ACY) > RA - 20 or abu.distance(Point(x, y)) < 0.8: continue
+    a = arnd.uniform(0, 6.28) if arnd.random() < 0.5 else math.atan2(av[1], av[0]) + (0 if arnd.random() < 0.5 else math.pi) + arnd.uniform(-0.4, 0.4)
+    person2(A, x, y, AZ + 0.07, a, 0.62 if arnd.random() < 0.08 else arnd.uniform(0.93, 1.07), arnd, AMATTE); nap += 1
+    if arnd.random() < 0.45 and pped.contains(Point(x - math.sin(a) * 0.62, y + math.cos(a) * 0.62)): person2(A, x - math.sin(a) * 0.62, y + math.cos(a) * 0.62, AZ + 0.07, a, arnd.uniform(0.9, 1.05), arnd, AMATTE); nap += 1
+for _ in range(70):
+    q = Wd(arnd.uniform(-35, 35), arnd.uniform(-17, 17)); v, t = blob(q[0], q[1], AZ + 0.16, 0.13, 0.08, arnd, 6, 4); A.add(v, t, col=(0.32, 0.33, 0.36), mat=AMATTE)
+    v, t = blob(q[0] + 0.1, q[1], AZ + 0.24, 0.045, 0.045, arnd, 5, 3); A.add(v, t, col=(0.25, 0.27, 0.32), mat=AMATTE)
+A.save("aris"); json.dump({"x": ACX, "y": ACY, "z": AZ, "a": [float(av[0]), float(av[1])], "La": La, "Wt": Wt, "m": [float(M0[0]), float(M0[1])], "R": RA}, open(f"{root}/data/aris_site.json", "w"))
+print("aris: trees", ntree, "palms", npalm, "lamps", nlamp, "benches", nbench, "tents", ntent, "chairs", nchair, "people", nap)

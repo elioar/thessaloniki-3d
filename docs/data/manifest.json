@@ -17,8 +17,8 @@
   {
    "name": "bld_wall_0",
    "material": "wall",
-   "verts": 170520,
-   "tris": 85260,
+   "verts": 169636,
+   "tris": 84818,
    "uv": true,
    "color": true,
    "file": "data/bld_wall_0.bin"
@@ -26,24 +26,24 @@
   {
    "name": "bld_roof_1",
    "material": "roof",
-   "verts": 46007,
-   "tris": 30711,
+   "verts": 45687,
+   "tris": 30483,
    "color": true,
    "file": "data/bld_roof_1.bin"
   },
   {
    "name": "bld_plain_2",
    "material": "plain",
-   "verts": 764825,
-   "tris": 957179,
+   "verts": 598733,
+   "tris": 812313,
    "color": true,
    "file": "data/bld_plain_2.bin"
   },
   {
    "name": "bld_glass_3",
    "material": "glass",
-   "verts": 30033,
-   "tris": 33707,
+   "verts": 17504,
+   "tris": 26256,
    "color": true,
    "file": "data/bld_glass_3.bin"
   },
@@ -243,91 +243,170 @@
   {
    "name": "site_matte_19",
    "material": "matte",
-   "verts": 16766,
-   "tris": 26192,
+   "verts": 58756,
+   "tris": 103332,
    "color": true,
    "file": "data/site_matte_19.bin"
   },
   {
    "name": "aris_apave_0",
    "material": "apave",
-   "verts": 446,
-   "tris": 482,
+   "verts": 604,
+   "tris": 640,
    "uv": true,
    "file": "data/aris_apave_0.bin"
   },
   {
-   "name": "aris_aband_1",
-   "material": "aband",
-   "verts": 154,
-   "tris": 84,
-   "file": "data/aris_aband_1.bin"
+   "name": "aris_acentre_1",
+   "material": "acentre",
+   "verts": 199,
+   "tris": 197,
+   "uv": true,
+   "file": "data/aris_acentre_1.bin"
   },
   {
    "name": "aris_agrass_2",
    "material": "agrass",
-   "verts": 89,
-   "tris": 47,
+   "verts": 190,
+   "tris": 142,
    "uv": true,
    "file": "data/aris_agrass_2.bin"
   },
   {
    "name": "aris_marble_3",
    "material": "marble",
-   "verts": 558,
-   "tris": 392,
+   "verts": 10811,
+   "tris": 6989,
    "file": "data/aris_marble_3.bin"
   },
   {
    "name": "aris_matte_4",
    "material": "matte",
-   "verts": 42499,
-   "tris": 67722,
+   "verts": 244360,
+   "tris": 400490,
    "color": true,
    "file": "data/aris_matte_4.bin"
   },
   {
    "name": "aris_matte_5",
    "material": "matte",
-   "verts": 126790,
-   "tris": 51460,
+   "verts": 355632,
+   "tris": 142800,
    "color": true,
    "file": "data/aris_matte_5.bin"
   },
   {
-   "name": "aris_bark_6",
-   "material": "bark",
-   "verts": 248,
-   "tris": 372,
-   "file": "data/aris_bark_6.bin"
-  },
-  {
    "name": "aris_lamp_7",
    "material": "lamp",
-   "verts": 320,
-   "tris": 480,
+   "verts": 216,
+   "tris": 324,
    "file": "data/aris_lamp_7.bin"
   },
   {
    "name": "aris_glow_8",
    "material": "glow",
-   "verts": 128,
-   "tris": 192,
+   "verts": 2890,
+   "tris": 5440,
    "file": "data/aris_glow_8.bin"
   },
   {
    "name": "aris_aasph_9",
    "material": "aasph",
-   "verts": 88,
-   "tris": 76,
+   "verts": 784,
+   "tris": 802,
    "uv": true,
    "file": "data/aris_aasph_9.bin"
+  },
+  {
+   "name": "aris_aband_10",
+   "material": "aband",
+   "verts": 391,
+   "tris": 293,
+   "file": "data/aris_aband_10.bin"
+  },
+  {
+   "name": "aris_acarpet_11",
+   "material": "acarpet",
+   "verts": 4,
+   "tris": 2,
+   "uv": true,
+   "file": "data/aris_acarpet_11.bin"
+  },
+  {
+   "name": "aris_ared_12",
+   "material": "ared",
+   "verts": 24,
+   "tris": 12,
+   "uv": true,
+   "file": "data/aris_ared_12.bin"
+  },
+  {
+   "name": "aris_apale_13",
+   "material": "apale",
+   "verts": 64,
+   "tris": 66,
+   "uv": true,
+   "file": "data/aris_apale_13.bin"
+  },
+  {
+   "name": "aris_amark_14",
+   "material": "amark",
+   "verts": 2220,
+   "tris": 1110,
+   "file": "data/aris_amark_14.bin"
+  },
+  {
+   "name": "aris_aside_15",
+   "material": "aside",
+   "verts": 8972,
+   "tris": 8886,
+   "uv": true,
+   "file": "data/aris_aside_15.bin"
+  },
+  {
+   "name": "abld_wall_0",
+   "material": "wall",
+   "verts": 448,
+   "tris": 224,
+   "uv": true,
+   "color": true,
+   "file": "data/abld_wall_0.bin"
+  },
+  {
+   "name": "abld_roof_1",
+   "material": "roof",
+   "verts": 141,
+   "tris": 99,
+   "color": true,
+   "file": "data/abld_roof_1.bin"
+  },
+  {
+   "name": "abld_plain_2",
+   "material": "plain",
+   "verts": 188424,
+   "tris": 187118,
+   "color": true,
+   "file": "data/abld_plain_2.bin"
+  },
+  {
+   "name": "abld_glass_3",
+   "material": "glass",
+   "verts": 11151,
+   "tris": 6201,
+   "color": true,
+   "file": "data/abld_glass_3.bin"
   }
  ],
  "tower": [
   -1.6500298976898193,
   2.25,
   4.759279251098633
+ ],
+ "aris": [
+  -632.6828263470943,
+  2.4,
+  -664.322492620402,
+  300.0
  ],
  "trees": {
   "file": "data/trees.bin",

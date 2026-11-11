@@ -26,7 +26,10 @@ export("bld", "buildings", {0: ("wall", True, True), 1: ("roof", False, True), 2
 export("tower", "tower", {0: ("stone", True, False), 1: ("dark", False, False), 2: ("pave", False, False), 3: ("white", False, False), 4: ("blue", False, False), 5: ("metal", False, False), 6: ("brick", True, False), 7: ("cap", False, False)}, offset=T)
 export("site", "site", {0: ("grass", True, False), 1: ("paving", True, False), 2: ("cobble", True, False), 3: ("asphalt", True, False), 4: ("kerb", False, False), 5: ("prom", True, False),
                         6: ("lamp", False, False), 7: ("glow", False, False), 8: ("car", False, True), 9: ("carglass", False, False), 10: ("bark", False, False), 12: ("mark", False, False), 13: ("walk", True, False), 14: ("terra", True, False), 15: ("marble", False, False), 16: ("dirt", False, False), 17: ("stele", False, False), 18: ("grey", True, False), 19: ("matte", False, True)}, drop=(11,))
-export("aris", "aris", {0: ("apave", True, False), 1: ("aband", False, False), 2: ("agrass", True, False), 3: ("marble", False, False), 4: ("matte", False, True), 5: ("matte", False, True), 6: ("bark", False, False), 7: ("lamp", False, False), 8: ("glow", False, False), 9: ("aasph", True, False)})
+export("aris", "aris", {0: ("apave", True, False), 1: ("acentre", True, False), 2: ("agrass", True, False), 3: ("marble", False, False), 4: ("matte", False, True), 5: ("matte", False, True), 6: ("bark", False, False), 7: ("lamp", False, False), 8: ("glow", False, False), 9: ("aasph", True, False),
+                         10: ("aband", False, False), 11: ("acarpet", True, False), 12: ("ared", True, False), 13: ("apale", True, False), 14: ("amark", False, False), 15: ("aside", True, False)})
+export("abld", "aris_bld_web", {0: ("wall", True, True), 1: ("roof", False, True), 2: ("plain", False, True), 3: ("glass", False, True)})
+_as = json.load(open(f"{root}/data/aris_site.json")); man["aris"] = [_as["x"], _as["z"], -_as["y"], _as["R"]]
 W = json.load(open(f"{root}/data/web_trees.json"))
 np.array(W["trees"], np.float32).tofile(f"{out}/data/trees.bin"); np.array(W["clumps"], np.float32).tofile(f"{out}/data/clumps.bin")
 man["trees"] = {"file": "data/trees.bin", "count": len(W["trees"]), "stride": 8}; man["clumps"] = {"file": "data/clumps.bin", "count": len(W["clumps"]), "stride": 8}
@@ -37,6 +40,6 @@ A = json.load(open(f"{root}/data/assets/assets.json"))
 for key in ("stone", "brick", "paving", "prom", "cobble", "grass", "asphalt"):
     for kind in ("diff", "nor"):
         Image.open(f"{root}/{A[key][kind]}").convert("RGB").resize((1024, 1024), Image.LANCZOS).save(f"{out}/tex/{key}_{kind}.jpg", quality=82)
-for key in ("agg_beige", "agg_grey", "pav_terra"): Image.open(f"{root}/{A[key]['diff']}").convert("RGB").save(f"{out}/tex/{key}.jpg", quality=85)
+for key in ("agg_beige", "agg_grey", "pav_terra", "pav_slab", "pav_pale", "carpet"): Image.open(f"{root}/{A[key]['diff']}").convert("RGB").save(f"{out}/tex/{key}.jpg", quality=85)
 json.dump(man, open(f"{out}/data/manifest.json", "w"), indent=1)
 tot = sum(os.path.getsize(os.path.join(dp, f)) for dp, _, fs in os.walk(out) for f in fs); print("docs total MB", round(tot / 1e6, 1))

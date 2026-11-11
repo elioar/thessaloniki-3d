@@ -95,6 +95,8 @@ async function main() {
   const fade = (mat) => { mat.transparent = true; mat.polygonOffset = true; mat.polygonOffsetFactor = -2; mat.polygonOffsetUnits = -2;
     return withWorld(mat, 'uniform vec2 uTower;', 'diffuseColor.a *= 1.0 - smoothstep(205.0, 255.0, distance(vWP.xz, uTower));', { uTower: { value: new THREE.Vector2(TW.x, TW.z) } }); };
 
+  const AR = man.aris, fadeA = (mat) => { mat.transparent = true; mat.polygonOffset = true; mat.polygonOffsetFactor = -2; mat.polygonOffsetUnits = -2;
+    return withWorld(mat, 'uniform vec2 uAris; uniform vec2 uAR;', 'diffuseColor.a *= 1.0 - smoothstep(uAR.x, uAR.y, distance(vWP.xz, uAris));', { uAris: { value: new THREE.Vector2(AR[0], AR[2]) }, uAR: { value: new THREE.Vector2(AR[3] - 38, AR[3] - 2) } }); };
   const M = {
     ground, wall,
     quay: new THREE.MeshStandardMaterial({ color: 0x77746d, roughness: 0.9 }),
@@ -109,16 +111,18 @@ async function main() {
     asphalt: fade(pbr('asphalt', 0.2, rgb(0.75, 0.75, 0.78))), prom: fade(img('agg_beige', 0.25)), grey: fade(img('agg_grey', 0.25)),
     mark: fade(new THREE.MeshStandardMaterial({ color: 0xe9e9e2, roughness: 0.7 })), walk: fade(pbr('prom', 0.5, rgb(1.3, 1.3, 1.27))),
     terra: fade(img('pav_terra', 0.5)), dirt: fade(new THREE.MeshStandardMaterial({ color: 0x8f8a7e, roughness: 1 })), matte: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }), marble: new THREE.MeshStandardMaterial({ color: 0xdcdcd6, roughness: 0.6 }), stele: new THREE.MeshStandardMaterial({ color: 0xb09880, roughness: 0.95 }),
-    apave: img('agg_grey', 0.25), aband: new THREE.MeshStandardMaterial({ color: 0x6f6d69, roughness: 0.9 }), agrass: pbr('grass', 0.28, rgb(0.75, 1.15, 0.5)), aasph: pbr('asphalt', 0.2, rgb(0.75, 0.75, 0.78)),
+    apave: fadeA(img('pav_slab', 1 / 3)), aside: fadeA(img('pav_slab', 1 / 3)), apale: fadeA(img('pav_pale', 1 / 3)), acentre: fadeA(img('agg_grey', 0.25)), ared: fadeA(img('pav_terra', 0.5)), acarpet: fadeA(img('carpet', 1)),
+    aband: fadeA(new THREE.MeshStandardMaterial({ color: 0x55534f, roughness: 0.9 })), amark: fadeA(new THREE.MeshStandardMaterial({ color: 0xe6e6de, roughness: 0.7 })), agrass: fadeA(pbr('grass', 0.28, rgb(0.75, 1.15, 0.5))), aasph: fadeA(pbr('asphalt', 0.2, rgb(0.75, 0.75, 0.78))),
     kerb: new THREE.MeshStandardMaterial({ color: 0x9d988c, roughness: 0.9 }), lamp: new THREE.MeshStandardMaterial({ color: 0x0c1f18, roughness: 0.5, metalness: 0.5 }),
     glow: new THREE.MeshStandardMaterial({ color: 0xfff3d6, emissive: 0xffe6b0, emissiveIntensity: 0.6 }),
     car: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.45 }), carglass: new THREE.MeshStandardMaterial({ color: 0x06080a, roughness: 0.12 }),
     bark: new THREE.MeshStandardMaterial({ color: 0x4a3526, roughness: 0.95, side: THREE.DoubleSide }),
   };
   for (const k of ['stone', 'brick', 'cap', 'dark', 'pave', 'metal', 'wall', 'roof', 'glass', 'quay', 'kerb', 'lamp', 'car', 'carglass']) M[k].side = THREE.DoubleSide;   // some faces wind inward
-  for (const k of ['apave', 'agrass', 'aasph']) { M[k].polygonOffset = true; M[k].polygonOffsetFactor = -2; M[k].polygonOffsetUnits = -2; } M.aband.polygonOffset = true; M.aband.polygonOffsetFactor = -5; M.aband.polygonOffsetUnits = -5; M.apave.color = new THREE.Color(1.2, 1.18, 1.14);
+  M.acentre.color = new THREE.Color(0.66, 0.66, 0.67); M.aside.color = new THREE.Color(0.85, 0.85, 0.85); M.ared.color = new THREE.Color(1.0, 0.62, 0.55);
+  for (const k of ['aband', 'acarpet', 'ared', 'amark', 'acentre']) { M[k].polygonOffsetFactor = -5; M[k].polygonOffsetUnits = -5; }
   M.mark.polygonOffsetFactor = -6; M.mark.polygonOffsetUnits = -6; M.walk.polygonOffsetFactor = -3; M.walk.polygonOffsetUnits = -3;
-  const noShadow = new Set(['ground', 'grass', 'paving', 'cobble', 'asphalt', 'prom', 'glow', 'mark', 'walk', 'terra', 'dirt', 'grey', 'apave', 'aband', 'agrass', 'aasph']);
+  const noShadow = new Set(['ground', 'grass', 'paving', 'cobble', 'asphalt', 'prom', 'glow', 'mark', 'walk', 'terra', 'dirt', 'grey', 'apave', 'aband', 'agrass', 'aasph', 'aside', 'apale', 'acentre', 'ared', 'acarpet', 'amark']);
   let done = 0; const total = man.meshes.length + 2; const tick = () => { fill.style.width = (100 * ++done / total) + '%'; };
   await Promise.all(man.meshes.map(async (r) => {
     const buf = await (await fetch(r.file)).arrayBuffer(); let o = 0; const g = new THREE.BufferGeometry();
