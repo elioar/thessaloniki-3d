@@ -1,6 +1,6 @@
 # downloaded or generated: rebuilt by the Makefile
-data/
-tools/
+/data/
+/tools/
 out/*.blend
 out/*.blend1
 out/*.exr

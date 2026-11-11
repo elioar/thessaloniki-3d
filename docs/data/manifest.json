@@ -1,0 +1,236 @@
+{
+ "meshes": [
+  {
+   "name": "ground_ground",
+   "material": "ground",
+   "verts": 163691,
+   "tris": 81923,
+   "file": "data/ground_ground.bin"
+  },
+  {
+   "name": "quay_quay",
+   "material": "quay",
+   "verts": 312,
+   "tris": 156,
+   "file": "data/quay_quay.bin"
+  },
+  {
+   "name": "bld_wall",
+   "material": "wall",
+   "verts": 164940,
+   "tris": 82470,
+   "uv": true,
+   "color": true,
+   "file": "data/bld_wall.bin"
+  },
+  {
+   "name": "bld_roof",
+   "material": "roof",
+   "verts": 44515,
+   "tris": 29719,
+   "color": true,
+   "file": "data/bld_roof.bin"
+  },
+  {
+   "name": "bld_plain",
+   "material": "plain",
+   "verts": 249523,
+   "tris": 329903,
+   "color": true,
+   "file": "data/bld_plain.bin"
+  },
+  {
+   "name": "bld_glass",
+   "material": "glass",
+   "verts": 9496,
+   "tris": 14244,
+   "color": true,
+   "file": "data/bld_glass.bin"
+  },
+  {
+   "name": "tower_stone",
+   "material": "stone",
+   "verts": 36170,
+   "tris": 18976,
+   "uv": true,
+   "file": "data/tower_stone.bin"
+  },
+  {
+   "name": "tower_dark",
+   "material": "dark",
+   "verts": 378,
+   "tris": 288,
+   "file": "data/tower_dark.bin"
+  },
+  {
+   "name": "tower_pave",
+   "material": "pave",
+   "verts": 3048,
+   "tris": 1524,
+   "file": "data/tower_pave.bin"
+  },
+  {
+   "name": "tower_white",
+   "material": "white",
+   "verts": 364,
+   "tris": 182,
+   "file": "data/tower_white.bin"
+  },
+  {
+   "name": "tower_blue",
+   "material": "blue",
+   "verts": 448,
+   "tris": 224,
+   "file": "data/tower_blue.bin"
+  },
+  {
+   "name": "tower_metal",
+   "material": "metal",
+   "verts": 80,
+   "tris": 68,
+   "file": "data/tower_metal.bin"
+  },
+  {
+   "name": "tower_brick",
+   "material": "brick",
+   "verts": 7328,
+   "tris": 3664,
+   "uv": true,
+   "file": "data/tower_brick.bin"
+  },
+  {
+   "name": "tower_cap",
+   "material": "cap",
+   "verts": 14996,
+   "tris": 7498,
+   "file": "data/tower_cap.bin"
+  },
+  {
+   "name": "site_grass",
+   "material": "grass",
+   "verts": 267,
+   "tris": 227,
+   "uv": true,
+   "file": "data/site_grass.bin"
+  },
+  {
+   "name": "site_paving",
+   "material": "paving",
+   "verts": 3434,
+   "tris": 3480,
+   "uv": true,
+   "file": "data/site_paving.bin"
+  },
+  {
+   "name": "site_cobble",
+   "material": "cobble",
+   "verts": 390,
+   "tris": 362,
+   "uv": true,
+   "file": "data/site_cobble.bin"
+  },
+  {
+   "name": "site_asphalt",
+   "material": "asphalt",
+   "verts": 685,
+   "tris": 697,
+   "uv": true,
+   "file": "data/site_asphalt.bin"
+  },
+  {
+   "name": "site_kerb",
+   "material": "kerb",
+   "verts": 9895,
+   "tris": 5935,
+   "file": "data/site_kerb.bin"
+  },
+  {
+   "name": "site_prom",
+   "material": "prom",
+   "verts": 43,
+   "tris": 41,
+   "uv": true,
+   "file": "data/site_prom.bin"
+  },
+  {
+   "name": "site_lamp",
+   "material": "lamp",
+   "verts": 800,
+   "tris": 1200,
+   "file": "data/site_lamp.bin"
+  },
+  {
+   "name": "site_glow",
+   "material": "glow",
+   "verts": 320,
+   "tris": 480,
+   "file": "data/site_glow.bin"
+  },
+  {
+   "name": "site_car",
+   "material": "car",
+   "verts": 8592,
+   "tris": 14320,
+   "color": true,
+   "file": "data/site_car.bin"
+  },
+  {
+   "name": "site_carglass",
+   "material": "carglass",
+   "verts": 15280,
+   "tris": 22920,
+   "file": "data/site_carglass.bin"
+  },
+  {
+   "name": "site_bark",
+   "material": "bark",
+   "verts": 15912,
+   "tris": 20664,
+   "file": "data/site_bark.bin"
+  }
+ ],
+ "tower": [
+  -1.6500298976898193,
+  2.25,
+  4.759279251098633
+ ],
+ "trees": {
+  "file": "data/trees.bin",
+  "count": 24714,
+  "stride": 8
+ },
+ "clumps": {
+  "file": "data/clumps.bin",
+  "count": 1464,
+  "stride": 8
+ },
+ "sat": {
+  "near": {
+   "file": "tex/sat_near.jpg",
+   "extent": [
+    -523.8524886881685,
+    -570.0201041188669,
+    520.3912718385524,
+    532.2399959228907
+   ]
+  },
+  "city": {
+   "file": "tex/sat_city.jpg",
+   "extent": [
+    -1684.1233337178583,
+    -1614.4172570938356,
+    1564.6350323652732,
+    1634.3366699785054
+   ]
+  },
+  "far": {
+   "file": "tex/sat_far.jpg",
+   "extent": [
+    -26745.97358635916,
+    -27422.62119358526,
+    28947.026975065954,
+    28266.780051183425
+   ]
+  }
+ }
+}
