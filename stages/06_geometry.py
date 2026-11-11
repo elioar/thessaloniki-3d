@@ -291,7 +291,7 @@ tm.save("trees"); print("trees", len(spots))
 
 # ================= the tower's surroundings (within 260 m) =================
 RS = 260.0; disc = Point(TX, TY).buffer(RS, 64); land = disc.difference(sea); S = Mesh()
-GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE = range(12)
+GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE, MARK, WALK = range(14)
 def flat(poly, z, mat, col=(1, 1, 1)):
     for pp in (poly.geoms if hasattr(poly, "geoms") else [poly]):
         if pp.geom_type == "Polygon" and pp.area > 0.3:
@@ -303,11 +303,71 @@ drive = unary_union([LineString(r["line"]).buffer(r["w"] / 2, cap_style=1) for r
 greens = [Polygon(p[0], p[1:]).buffer(0) for it in L["green"] for p in it["poly"]]
 greens = [g for g in greens if g.distance(TW) < RS and g.area < 3200]   # big "park" outlines are mostly paving, not lawn
 lawn = min((g for g in greens if g.distance(TW) < 13 and g.area > 300), key=lambda g: g.area)   # the lawn the tower stands on
-grass = unary_union(greens).intersection(land).difference(drive.buffer(0.5))
+walk = drive.buffer(2.6, join_style=1).difference(drive).intersection(land).difference(bu.buffer(0.1))      # raised pavements beside every road
+grass = unary_union(greens).intersection(land).difference(drive.buffer(2.6))
 prom = sea.buffer(15).intersection(land).difference(grass).difference(drive)
 flat(land.difference(bu.buffer(0.2)), 0.02, PAVE)
 flat(prom, 0.04, PROM)
 flat(drive, 0.06, ASPHALT)
+flat(walk, 0.20, WALK)
+for pp in (walk.geoms if hasattr(walk, "geoms") else [walk]):                                    # kerb faces
+    if pp.geom_type != "Polygon": continue
+    for ring in [pp.exterior] + list(pp.interiors):
+        c = list(ring.coords)
+        for p, r in zip(c[:-1], c[1:]): S.add([(p[0], p[1], FLAT + .02), (r[0], r[1], FLAT + .02), (r[0], r[1], FLAT + .2), (p[0], p[1], FLAT + .2)], Q, mat=CURB)
+# ---- road markings: lane lines, edge lines, zebra crossings ----
+DRIVE = ("primary", "secondary", "tertiary", "residential", "unclassified", "trunk", "living_street")
+rl = [(r, LineString(r["line"])) for r in roads if r["kind"] in DRIVE and LineString(r["line"]).length > 6]
+def junction(pt, me):
+    k = 0
+    for r2, l2 in rl:
+        if l2 is me or l2.distance(pt) > 0.4: continue
+        s2 = l2.project(pt); k += 2 if 1.0 < s2 < l2.length - 1.0 else 1
+    return k >= 2
+JUNC = []; ENDS = {}
+for r, ls in rl:
+    ENDS[id(ls)] = [junction(Point(ls.coords[0]), ls), junction(Point(ls.coords[-1]), ls)]
+    JUNC += [ls.coords[k] for k, f in zip((0, -1), ENDS[id(ls)]) if f]
+JUNC = np.array(JUNC) if JUNC else np.zeros((0, 2))
+def jdist(x, y): return float(np.hypot(JUNC[:, 0] - x, JUNC[:, 1] - y).min()) if len(JUNC) else 1e9
+ZM = FLAT + 0.075; pland = prep(land)
+def lane_info(r):
+    w = r["w"]; one = r.get("oneway")
+    n = r.get("lanes") or (max(1, round(w / 3.4)) if one else max(2, 2 * round(w / 6.8)))
+    if not one and n % 2: n += 1
+    return w, one, n, w / n
+def paint(ls, off, s0, s1, wd=0.15):
+    a, b = ls.interpolate(s0), ls.interpolate(s1); dx, dy = b.x - a.x, b.y - a.y; n = math.hypot(dx, dy)
+    if n < 0.2: return
+    lx, ly = -dy / n, dx / n; ax, ay, bx_, by_ = a.x + lx * off, a.y + ly * off, b.x + lx * off, b.y + ly * off
+    if not pland.contains(Point((ax + bx_) / 2, (ay + by_) / 2)): return
+    hx, hy = lx * wd / 2, ly * wd / 2
+    S.add([(ax - hx, ay - hy, ZM), (bx_ - hx, by_ - hy, ZM), (bx_ + hx, by_ + hy, ZM), (ax + hx, ay + hy, ZM)], Q, mat=MARK)
+def stripe(ls, off, dash, gap, s0, s1):
+    s = s0
+    while s < s1 - 0.5:
+        e = min(s + dash, s1); t = s
+        while t < e - 1e-6: t2 = min(t + 2.0, e); paint(ls, off, t, t2); t = t2
+        s = e + gap
+ncross = 0
+for r, ls in rl:
+    w, one, n, lw = lane_info(r); j0, j1 = ENDS[id(ls)]; JW = w / 2 + 7.5; s0 = JW if j0 else 0.0; s1 = ls.length - (JW if j1 else 0.0)
+    if s1 - s0 > 3:
+        if r["kind"] != "residential":
+            for o in (-(w / 2 - 0.25), w / 2 - 0.25): stripe(ls, o, 1e9, 0, s0, s1)
+        for k in range(1, n):
+            o = -w / 2 + k * lw
+            if not one and k == n // 2:
+                if n >= 4: stripe(ls, o - 0.12, 1e9, 0, s0, s1); stripe(ls, o + 0.12, 1e9, 0, s0, s1)
+                else: stripe(ls, o, 3.0, 4.5, s0, s1)
+            else: stripe(ls, o, 3.0, 6.0, s0, s1)
+    if ls.length > 22:
+        for flag, sc in ((j0, w / 2 + 3.2), (j1, ls.length - w / 2 - 3.2)):
+            if not flag: continue
+            a, b = ls.interpolate(sc - 0.5), ls.interpolate(sc + 0.5); ux, uy = b.x - a.x, b.y - a.y; q = ls.interpolate(sc); ncross += 1
+            for i in range(int((w - 0.6) / 1.0)):
+                o = -w / 2 + 0.55 + i * 1.0; c = (q.x - uy * o, q.y + ux * o)
+                if pland.contains(Point(c)): obox(S, c, (ux, uy), 3.0, 0.5, ZM - 0.005, ZM, (1, 1, 1), MARK)
 flat(grass.difference(Point(TX, TY).buffer(P_R := 11.9)), 0.10, GRASS)
 kerb = grass.boundary.buffer(0.22).intersection(land).difference(Point(TX, TY).buffer(13)); flat(kerb, 0.20, CURB)
 for pp in (kerb.geoms if hasattr(kerb, "geoms") else [kerb]):                                    # kerb sides
@@ -334,27 +394,38 @@ for ls in (coastl.geoms if hasattr(coastl, "geoms") else [coastl]):
         obox(S, (x, y), (1, 0), 0.45, 0.45, FLAT, FLAT + 0.7, (1, 1, 1), LAMP); obox(S, (x, y), (1, 0), 0.14, 0.14, FLAT + 0.7, FLAT + 6.2, (1, 1, 1), LAMP)
         obox(S, (x, y), (1, 0), 0.9, 0.08, FLAT + 5.9, FLAT + 6.0, (1, 1, 1), LAMP)
         for sx in (-0.45, 0.45): obox(S, (x + sx, y), (1, 0), 0.36, 0.36, FLAT + 6.0, FLAT + 6.55, (1, 1, 1), GLOW); obox(S, (x + sx, y), (1, 0), 0.46, 0.46, FLAT + 6.55, FLAT + 6.65, (1, 1, 1), LAMP)
-# parked and moving cars
-CARCOL = [(0.8, 0.8, 0.8), (0.75, 0.75, 0.77), (0.05, 0.05, 0.06), (0.3, 0.31, 0.33), (0.5, 0.04, 0.04), (0.06, 0.12, 0.35), (0.55, 0.56, 0.58), (0.85, 0.85, 0.83)]
-crnd = random.Random(11); ncar = 0
-for r in roads:
-    if r["kind"] not in ("primary", "secondary", "tertiary", "residential", "unclassified"): continue
-    ls = LineString(r["line"]); lanes = [-r["w"] / 2 + 1.3, r["w"] / 2 - 1.3] + ([-1.7, 1.7] if r["w"] >= 11 else [])
-    for off in lanes:
-        d = crnd.uniform(0, 6)
-        while d < ls.length - 3:
-            a, b = ls.interpolate(d), ls.interpolate(d + 1); ux, uy = b.x - a.x, b.y - a.y; n = math.hypot(ux, uy) or 1; ux, uy = ux / n, uy / n
-            c = (a.x - uy * off, a.y + ux * off); d += crnd.uniform(5.6, 13)
-            if not land.contains(Point(c)) or bu.distance(Point(c)) < 1.2 or crnd.random() < 0.45: continue
-            col = CARCOL[crnd.randrange(len(CARCOL))]; ln = crnd.uniform(3.9, 4.6); ncar += 1
-            body = [(-.5, .30), (-.5, .62), (-.46, .76), (-.22, .82), (.20, .84), (.46, .72), (.5, .52), (.5, .30)]
-            cab = [(-.37, .80), (-.27, 1.30), (.08, 1.33), (.25, .83)]; van = crnd.random() < 0.12
-            if van: body = [(-.5, .30), (-.5, 1.75), (.30, 1.78), (.42, 1.25), (.5, .8), (.5, .30)]; cab = [(.26, 1.2), (.31, 1.7), (.33, 1.7), (.44, 1.2)]; col = (0.82, 0.82, 0.8)
-            prism(S, [(a * ln, h) for a, h in body], c, (ux, uy), 0.88, FLAT, col, CAR)
-            prism(S, [(a * ln, h) for a, h in cab], c, (ux, uy), 0.80 if not van else 0.86, FLAT, (1, 1, 1), CARGLASS)
-            if not van: prism(S, [(-.27 * ln, 1.29), (-.27 * ln, 1.34), (.08 * ln, 1.37), (.08 * ln, 1.32)], c, (ux, uy), 0.81, FLAT, col, CAR)
-            for a in (-.31, .31):
-                for sd in (-1, 1): obox(S, (c[0] + ux * a * ln - uy * sd * 0.80, c[1] + uy * a * ln + ux * sd * 0.80), (ux, uy), 0.64, 0.2, FLAT + 0.02, FLAT + 0.64, (1, 1, 1), CARGLASS)
+# ---- cars: in lanes, facing the way the traffic flows, parked along the kerb in side streets ----
+CARCOL = [(0.8, 0.8, 0.8), (0.75, 0.75, 0.77), (0.05, 0.05, 0.06), (0.3, 0.31, 0.33), (0.5, 0.04, 0.04), (0.06, 0.12, 0.35), (0.55, 0.56, 0.58), (0.85, 0.85, 0.83), (0.6, 0.6, 0.62), (0.12, 0.13, 0.15)]
+crnd = random.Random(11); ncar = 0; placed = []
+def car(c, ux, uy):
+    col = CARCOL[crnd.randrange(len(CARCOL))]; ln = crnd.uniform(3.9, 4.6)
+    body = [(-.5, .30), (-.5, .62), (-.46, .76), (-.22, .82), (.20, .84), (.46, .72), (.5, .52), (.5, .30)]
+    cab = [(-.37, .80), (-.27, 1.30), (.08, 1.33), (.25, .83)]; van = crnd.random() < 0.1
+    if van: body = [(-.5, .30), (-.5, 1.75), (.30, 1.78), (.42, 1.25), (.5, .8), (.5, .30)]; cab = [(.26, 1.2), (.31, 1.7), (.33, 1.7), (.44, 1.2)]; col = (0.82, 0.82, 0.8)
+    Z = FLAT + 0.06
+    prism(S, [(a * ln, h) for a, h in body], c, (ux, uy), 0.88, Z, col, CAR)
+    prism(S, [(a * ln, h) for a, h in cab], c, (ux, uy), 0.80 if not van else 0.86, Z, (1, 1, 1), CARGLASS)
+    if not van: prism(S, [(-.27 * ln, 1.29), (-.27 * ln, 1.34), (.08 * ln, 1.37), (.08 * ln, 1.32)], c, (ux, uy), 0.81, Z, col, CAR)
+    for a in (-.31, .31):
+        for sd in (-1, 1): obox(S, (c[0] + ux * a * ln - uy * sd * 0.80, c[1] + uy * a * ln + ux * sd * 0.80), (ux, uy), 0.64, 0.2, Z + 0.02, Z + 0.64, (1, 1, 1), CARGLASS)
+def lane(ls, off, forward, lo, hi, clear, skip):
+    """drop cars along one lane: off = metres to the left of the line, spacing lo..hi, kept `clear` metres from junctions."""
+    global ncar
+    d = crnd.uniform(2, hi)
+    while d < ls.length - 2.5:
+        a, b = ls.interpolate(d - 0.5), ls.interpolate(d + 0.5); ux, uy = b.x - a.x, b.y - a.y; n = math.hypot(ux, uy) or 1; ux, uy = ux / n, uy / n
+        q = ls.interpolate(d); c = (q.x - uy * off, q.y + ux * off); d += crnd.uniform(lo, hi)
+        if crnd.random() < skip or jdist(*c) < clear or not pland.contains(Point(c)) or bu.distance(Point(c)) < 1.3: continue
+        if any(math.hypot(c[0] - px, c[1] - py) < 4.9 for px, py in placed): continue
+        placed.append(c); ncar += 1; car(c, ux, uy) if forward else car(c, -ux, -uy)
+for r, ls in rl:
+    w, one, n, lw = lane_info(r)
+    if r["kind"] in ("residential", "unclassified", "living_street") and w <= 8.5:
+        for o in (-(w / 2 - 1.05), w / 2 - 1.05): lane(ls, o, one or o < 0, 5.3, 6.2, 7.0, 0.22)      # parked nose to tail
+        lane(ls, 0.0 if one else -0.9, True, 25, 60, 8.0, 0.3)
+    else:
+        for k in range(n):
+            o = -w / 2 + (k + 0.5) * lw; lane(ls, o, one or o < 0, 9, 26, w / 2 + 4.0, 0.15)
 # stone pines: bare leaning trunk, broad flat crown of several clumps
 prnd = random.Random(5); pines = []
 for (x, y) in sorted(near_spots, key=lambda p: prnd.random()):
@@ -379,6 +450,6 @@ for (x, y) in pines:
         WEB_CLUMPS.append([round(bx, 2), round(by, 2), round(bz + rzz * 0.15, 2), round(rx, 2), round(rzz, 2)] + [round(c, 3) for c in gk])
         a0 = np.array([tx_, ty_, tz_ - 0.8]); b0 = np.array([bx, by, bz - rzz * 0.4]); sd = np.cross(b0 - a0, (0, 0, 1.0)); sd = sd / (np.linalg.norm(sd) + 1e-6) * 0.09
         S.add([a0 - sd, a0 + sd, b0 + sd * 0.5, b0 - sd * 0.5, a0 + (0, 0, 0.16), b0 + (0, 0, 0.1)], [(0, 1, 2), (0, 2, 3), (0, 3, 5), (0, 5, 4), (1, 4, 5), (1, 5, 2)], col=(1, 1, 1), mat=BARK)
-S.save("site"); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
+S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
 
 json.dump({"trees": WEB_TREES, "clumps": WEB_CLUMPS, "tower": [TX, TY, FLAT], "bounds": [x0, y0, x1, y1]}, open(f"{root}/data/web_trees.json", "w"))

@@ -108,8 +108,8 @@
   {
    "name": "site_grass",
    "material": "grass",
-   "verts": 267,
-   "tris": 227,
+   "verts": 401,
+   "tris": 361,
    "uv": true,
    "file": "data/site_grass.bin"
   },
@@ -140,8 +140,8 @@
   {
    "name": "site_kerb",
    "material": "kerb",
-   "verts": 9895,
-   "tris": 5935,
+   "verts": 20133,
+   "tris": 11205,
    "file": "data/site_kerb.bin"
   },
   {
@@ -169,16 +169,16 @@
   {
    "name": "site_car",
    "material": "car",
-   "verts": 8592,
-   "tris": 14320,
+   "verts": 6612,
+   "tris": 11020,
    "color": true,
    "file": "data/site_car.bin"
   },
   {
    "name": "site_carglass",
    "material": "carglass",
-   "verts": 15280,
-   "tris": 22920,
+   "verts": 11680,
+   "tris": 17520,
    "file": "data/site_carglass.bin"
   },
   {
@@ -187,6 +187,21 @@
    "verts": 15912,
    "tris": 20664,
    "file": "data/site_bark.bin"
+  },
+  {
+   "name": "site_mark",
+   "material": "mark",
+   "verts": 8044,
+   "tris": 5702,
+   "file": "data/site_mark.bin"
+  },
+  {
+   "name": "site_walk",
+   "material": "walk",
+   "verts": 2182,
+   "tris": 2136,
+   "uv": true,
+   "file": "data/site_walk.bin"
   }
  ],
  "tower": [

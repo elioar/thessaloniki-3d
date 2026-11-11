@@ -86,7 +86,7 @@ for i, (refs, t) in ways.items():
         if ls is not None and not ls.is_empty:
             lanes = num(t.get("lanes")); w = max(WIDTH[t["highway"]], (lanes or 0) * 3.3)
             for part in (ls.geoms if hasattr(ls, "geoms") else [ls]):
-                if part.geom_type == "LineString": L["roads"].append({"kind": t["highway"], "w": w, "name": t.get("name"), "line": [list(c) for c in part.coords]})
+                if part.geom_type == "LineString": L["roads"].append({"kind": t["highway"], "w": w, "name": t.get("name"), "oneway": t.get("oneway") in ("yes", "1", "true") or t.get("junction") == "roundabout", "lanes": int(lanes) if lanes else None, "line": [list(c) for c in part.coords]})
         continue
     if refs and refs[0] == refs[-1]: classify(poly(refs), t, i)
 for i, (members, t) in rels.items():
