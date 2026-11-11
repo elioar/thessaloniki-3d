@@ -17,8 +17,8 @@
   {
    "name": "bld_wall",
    "material": "wall",
-   "verts": 164940,
-   "tris": 82470,
+   "verts": 168404,
+   "tris": 84202,
    "uv": true,
    "color": true,
    "file": "data/bld_wall.bin"
@@ -26,24 +26,24 @@
   {
    "name": "bld_roof",
    "material": "roof",
-   "verts": 44515,
-   "tris": 29719,
+   "verts": 45379,
+   "tris": 30271,
    "color": true,
    "file": "data/bld_roof.bin"
   },
   {
    "name": "bld_plain",
    "material": "plain",
-   "verts": 249523,
-   "tris": 329903,
+   "verts": 334751,
+   "tris": 444443,
    "color": true,
    "file": "data/bld_plain.bin"
   },
   {
    "name": "bld_glass",
    "material": "glass",
-   "verts": 9496,
-   "tris": 14244,
+   "verts": 9720,
+   "tris": 14580,
    "color": true,
    "file": "data/bld_glass.bin"
   },
@@ -155,37 +155,37 @@
   {
    "name": "site_lamp",
    "material": "lamp",
-   "verts": 800,
-   "tris": 1200,
+   "verts": 1056,
+   "tris": 1584,
    "file": "data/site_lamp.bin"
   },
   {
    "name": "site_glow",
    "material": "glow",
-   "verts": 320,
-   "tris": 480,
+   "verts": 480,
+   "tris": 720,
    "file": "data/site_glow.bin"
   },
   {
    "name": "site_car",
    "material": "car",
-   "verts": 6612,
-   "tris": 11020,
+   "verts": 267768,
+   "tris": 446280,
    "color": true,
    "file": "data/site_car.bin"
   },
   {
    "name": "site_carglass",
    "material": "carglass",
-   "verts": 11680,
-   "tris": 17520,
+   "verts": 103288,
+   "tris": 154932,
    "file": "data/site_carglass.bin"
   },
   {
    "name": "site_bark",
    "material": "bark",
-   "verts": 15996,
-   "tris": 20808,
+   "verts": 21564,
+   "tris": 27918,
    "file": "data/site_bark.bin"
   },
   {
@@ -239,6 +239,14 @@
    "tris": 7,
    "uv": true,
    "file": "data/site_grey.bin"
+  },
+  {
+   "name": "site_matte",
+   "material": "matte",
+   "verts": 16766,
+   "tris": 26192,
+   "color": true,
+   "file": "data/site_matte.bin"
   }
  ],
  "tower": [
@@ -253,7 +261,7 @@
  },
  "clumps": {
   "file": "data/clumps.bin",
-  "count": 1540,
+  "count": 2187,
   "stride": 8
  },
  "sat": {

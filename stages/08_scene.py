@@ -153,12 +153,12 @@ def m_site(name, kind, site):
     elif kind == "pave": c = mul(nt, pbr(nt, b, "agg_beige", pos, 0.25), mix(nt, noise(0.05, 4), (0.86, 0.85, 0.83), (1.0, 1.0, 1.0)))
     elif kind == "prom": c = mul(nt, pbr(nt, b, "agg_beige", pos, 0.25), mix(nt, noise(0.05, 4), (0.9, 0.9, 0.9), (1.06, 1.05, 1.03)))
     elif kind == "grey": c = mul(nt, pbr(nt, b, "agg_grey", pos, 0.25), mix(nt, noise(0.05, 4), (0.88, 0.88, 0.88), (1.05, 1.05, 1.05)))
-    elif kind == "cobble": c = pbr(nt, b, "cobble", pos, 0.45, bump=1.5); c = mix(nt, 0.45, c, (0.80, 0.79, 0.75))
+    elif kind == "cobble": c = pbr(nt, b, "stone", pos, 0.55, bump=1.8); c = mix(nt, 0.5, c, (0.80, 0.80, 0.77))
     elif kind == "asphalt": c = pbr(nt, b, "asphalt", pos, 0.2); c = mul(nt, c, mix(nt, noise(0.1, 4), (0.55, 0.55, 0.57), (0.95, 0.95, 0.95)))
     elif kind == "walk": c = pbr(nt, b, "prom", pos, 0.5); c = mix(nt, 0.3, c, (0.60, 0.60, 0.58))
     elif kind == "mark": c = (0.82, 0.82, 0.78)
     elif kind == "terra": c = mul(nt, pbr(nt, b, "pav_terra", pos, 0.5), mix(nt, noise(0.07, 4), (0.84, 0.84, 0.86), (1.06, 1.03, 1.0)))
-    elif kind == "dirt": c = mix(nt, noise(6.0, 3), (0.50, 0.47, 0.42), (0.72, 0.69, 0.63))
+    elif kind == "dirt": c = mix(nt, noise(6.0, 3), (0.36, 0.34, 0.30), (0.56, 0.53, 0.47))
     else: c = (0.58, 0.55, 0.50)
     if isinstance(c, tuple): b.inputs["Base Color"].default_value = (*c, 1)
     else: nt.links.new(c, b.inputs["Base Color"])
@@ -201,12 +201,22 @@ if not ONLY_TOWER:
     bpy.ops.mesh.primitive_plane_add(size=90000); sea = bpy.context.object; sea.name = "sea"; sea.location = (0, 0, 0.35); setm(sea, [m_water()])
     setm(load("site", smooth=False), [m_site("grass", "grass", site), m_site("paving", "pave", site), m_site("cobble", "cobble", site), m_site("asphalt", "asphalt", site),
          m_site("kerb", "kerb", site), m_site("promenade", "prom", site), m_plain("lamp", (0.03, 0.07, 0.05), 0.5, 0.6), m_glow(), m_plain("car", (0.5, 0.5, 0.5), 0.22, 0.5, attr=True),
-         m_plain("car_glass", (0.02, 0.025, 0.03), 0.1), m_plain("bark", (0.19, 0.13, 0.09), 0.9), m_leaf("pine"), m_site("marking", "mark", site), m_site("sidewalk", "walk", site), m_site("terracotta", "terra", site), m_plain("marble", (0.80, 0.80, 0.78), 0.5), m_site("dirt", "dirt", site), m_plain("stele", (0.62, 0.52, 0.42), 0.9), m_site("grey_aggregate", "grey", site)])
+         m_plain("car_glass", (0.02, 0.025, 0.03), 0.1), m_plain("bark", (0.19, 0.13, 0.09), 0.9), m_leaf("pine"), m_site("marking", "mark", site), m_site("sidewalk", "walk", site), m_site("terracotta", "terra", site), m_plain("marble", (0.80, 0.80, 0.78), 0.5), m_site("dirt", "dirt", site), m_plain("stele", (0.50, 0.42, 0.34), 0.95), m_site("grey_aggregate", "grey", site), m_plain("matte", (0.5, 0.5, 0.5), 0.8, attr=True)])
 else:
     bpy.ops.mesh.primitive_plane_add(size=600); bpy.context.object.location = TP; setm(bpy.context.object, [m_plain("floor", (0.5, 0.5, 0.5), 0.9)])
 tw = load("tower"); tw.location = TP
 setm(tw, [m_stone(), m_plain("dark", (0.012, 0.012, 0.014), 0.6), m_plain("pave", (0.50, 0.46, 0.40), 0.9), m_plain("flag_white", (0.9, 0.9, 0.9), 0.7),
           m_plain("flag_blue", (0.02, 0.16, 0.55), 0.7), m_plain("metal", (0.12, 0.12, 0.12), 0.5, 1.0), m_brick(), m_cap()])
+# lettering on buildings
+import os as _os
+from mathutils import Matrix
+if not ONLY_TOWER and _os.path.exists(f"{root}/data/labels.json"):
+    fp = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"; font = bpy.data.fonts.load(fp) if _os.path.exists(fp) else None
+    for lb in json.load(open(f"{root}/data/labels.json")):
+        cu = bpy.data.curves.new("label", "FONT"); cu.body = lb["text"]; cu.size = lb["size"]; cu.align_x = "CENTER"; cu.extrude = 0.04
+        if font: cu.font = font
+        ob = bpy.data.objects.new("label", cu); sc.collection.objects.link(ob); d, n = lb["dir"], lb["n"]
+        ob.matrix_world = Matrix(((d[0], 0, n[0], lb["pos"][0]), (d[1], 0, n[1], lb["pos"][1]), (0, 1, 0, lb["pos"][2]), (0, 0, 0, 1))); setm(ob, [m_plain("lettering", (0.10, 0.08, 0.06), 0.5)])
 # light: a photographed clear sky (Poly Haven), turned so that its sun sits at the azimuth we want
 SUN_AZ = math.radians(float(arg("--sun-az", "225"))); HDRI_SUN_MATH = math.radians(171.4)        # where the sun is in the file
 w = bpy.data.worlds.new("World"); sc.world = w; w.use_nodes = True; wn = w.node_tree; bg = wn.nodes["Background"]
@@ -217,7 +227,7 @@ wn.links.new(tcw.outputs["Generated"], mpw.inputs[0]); wn.links.new(mpw.outputs[
 skytype = "HDRI"; sc.view_layers[0].use_pass_mist = True; w.mist_settings.start = 0; w.mist_settings.depth = 30000; w.mist_settings.falloff = "LINEAR"
 # cameras
 CAMDEF = {"aerial": ((-430, -360, 250), (40, 60, 5), 35), "tower": ((-66, -58, 24), (0, 0, 16), 32), "city": ((-1500, -1700, 1150), (150, 250, 0), 32),
-          "tower_ne": ((62, 48, 30), (0, 0, 16), 32), "ref5": ((92, 70, 40), (2, 0, 17), 50), "ref1": ((27, 31, 1.7), (0, 0, 19), 22), "crown": ((-30, -18, 37), (0, 0, 27), 35), "earth": ((-185, -75, 82), (8, 12, 6), 32), "park": ((-78, -96, 58), (6, -10, 2), 30), "strip": ((-40, -150, 70), (20, -60, 0), 30), "stelae": ((-20, -118, 1.7), (22, -55, 3), 22), "slabs": ((-62, -52, 1.7), (-5, -10, 8), 22), "floor": ((-48, -62, 1.7), (30, -40, 0.5), 20), "planters": ((-34, -108, 1.7), (-2, -20, 12), 24), "drone": ((95, -150, 62), (-12, 25, 10), 26), "plaza": ((-50, -34, 1.7), (0, 0, 15), 20), "theatre": ((35, -22, 26), (118, 30, 11), 28), "nikis": ((-150, 20, 45), (-40, 150, 12), 30), "suntest": ((0, -1, 170), (0, 0, 0), 28), "top": ((0, -1, 2600), (0, 0, 0), 28), "waterfront": ((-260, 150, 60), (-10, -10, 12), 40)}
+          "tower_ne": ((62, 48, 30), (0, 0, 16), 32), "ref5": ((92, 70, 40), (2, 0, 17), 50), "ref1": ((27, 31, 1.7), (0, 0, 19), 22), "crown": ((-30, -18, 37), (0, 0, 27), 35), "earth": ((-185, -75, 82), (8, 12, 6), 32), "park": ((-78, -96, 58), (6, -10, 2), 30), "strip": ((-40, -150, 70), (20, -60, 0), 30), "stelae": ((-20, -118, 1.7), (22, -55, 3), 22), "slabs": ((-62, -52, 1.7), (-5, -10, 8), 22), "floor": ((-48, -62, 1.7), (30, -40, 0.5), 20), "pines": ((-46, -30, 1.7), (0, 0, 13), 20), "front": ((48, 12, 1.7), (125, 34, 11), 22), "planters": ((-34, -108, 1.7), (-2, -20, 12), 24), "drone": ((95, -150, 62), (-12, 25, 10), 26), "plaza": ((-50, -34, 1.7), (0, 0, 15), 20), "theatre": ((35, -22, 26), (118, 30, 11), 28), "nikis": ((-150, 20, 45), (-40, 150, 12), 30), "suntest": ((0, -1, 170), (0, 0, 0), 28), "top": ((0, -1, 2600), (0, 0, 0), 28), "waterfront": ((-260, 150, 60), (-10, -10, 12), 40)}
 for name, (pos, tgt, lens) in CAMDEF.items():
     cd = bpy.data.cameras.new(name); cd.lens = lens; cd.clip_end = 80000; cd.clip_start = 0.5
     cam = bpy.data.objects.new("cam_" + name, cd); sc.collection.objects.link(cam)

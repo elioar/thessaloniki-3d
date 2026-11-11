@@ -25,7 +25,7 @@ export("quay", "quay", {0: ("quay", False, False)})
 export("bld", "buildings", {0: ("wall", True, True), 1: ("roof", False, True), 2: ("plain", False, True), 3: ("glass", False, True)})
 export("tower", "tower", {0: ("stone", True, False), 1: ("dark", False, False), 2: ("pave", False, False), 3: ("white", False, False), 4: ("blue", False, False), 5: ("metal", False, False), 6: ("brick", True, False), 7: ("cap", False, False)}, offset=T)
 export("site", "site", {0: ("grass", True, False), 1: ("paving", True, False), 2: ("cobble", True, False), 3: ("asphalt", True, False), 4: ("kerb", False, False), 5: ("prom", True, False),
-                        6: ("lamp", False, False), 7: ("glow", False, False), 8: ("car", False, True), 9: ("carglass", False, False), 10: ("bark", False, False), 12: ("mark", False, False), 13: ("walk", True, False), 14: ("terra", True, False), 15: ("marble", False, False), 16: ("dirt", False, False), 17: ("stele", False, False), 18: ("grey", True, False)}, drop=(11,))
+                        6: ("lamp", False, False), 7: ("glow", False, False), 8: ("car", False, True), 9: ("carglass", False, False), 10: ("bark", False, False), 12: ("mark", False, False), 13: ("walk", True, False), 14: ("terra", True, False), 15: ("marble", False, False), 16: ("dirt", False, False), 17: ("stele", False, False), 18: ("grey", True, False), 19: ("matte", False, True)}, drop=(11,))
 W = json.load(open(f"{root}/data/web_trees.json"))
 np.array(W["trees"], np.float32).tofile(f"{out}/data/trees.bin"); np.array(W["clumps"], np.float32).tofile(f"{out}/data/clumps.bin")
 man["trees"] = {"file": "data/trees.bin", "count": len(W["trees"]), "stride": 8}; man["clumps"] = {"file": "data/clumps.bin", "count": len(W["clumps"]), "stride": 8}

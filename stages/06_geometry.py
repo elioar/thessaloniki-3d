@@ -97,7 +97,7 @@ ROOF = [(0.55, 0.54, 0.52), (0.62, 0.60, 0.57), (0.48, 0.47, 0.46), (0.66, 0.63,
 FABRIC = [(0.08, 0.26, 0.14), (0.70, 0.58, 0.38), (0.70, 0.30, 0.08), (0.10, 0.18, 0.40), (0.50, 0.09, 0.08), (0.80, 0.77, 0.68), (0.20, 0.36, 0.30)]
 WALLM, ROOFM, PLAIN, GLASS = 0, 1, 2, 3
 THEATRE_KTHBE, THEATRE_ROYAL, OFFICERS = "19790720", "19855083", "182044285"
-bm = Mesh(); polys = []; tower = None; INNER = 420.0
+bm = Mesh(); polys = []; tower = None; INNER = 420.0; LABELS = []
 allp = [Polygon(bd["poly"][0], bd["poly"][1:]).buffer(0) for bd in L["buildings"]]; alltree = STRtree(allp)
 def walls(P, zb, zt, zg, col, mat, rnd):
     for ring in [P.exterior] + list(P.interiors):
@@ -119,7 +119,7 @@ def mrr_sides(P):
         if (mx - cen.x) * nx + (my - cen.y) * ny < 0: nx, ny = -nx, -ny
         out.append(((mx, my), (ux, uy), (nx, ny), d))
     return out
-def polykatoikia(P, bd, zg, zt, wall, rnd):
+def polykatoikia(P, bd, zg, zt, wall, rnd, lite=False):
     """Greek apartment block: balconies on the street sides, awnings, set-back top floor, roof clutter."""
     body = P; top = zt
     if bd["h"] > 17 and rnd.random() < 0.65:
@@ -129,6 +129,7 @@ def polykatoikia(P, bd, zg, zt, wall, rnd):
     walls(P, zg - 1.5, top, zg, wall, WALLM, rnd); roof(P, top, ROOF[rnd.randrange(4)]); parapet(P, top, wall, 0.95 if body is not P else 0.8)
     ext = P.exterior if P.exterior.is_ccw else P.exterior.reverse(); c = list(ext.coords); nfl = int((top - zg - 3.6) / 3.1 + 0.3)
     white = tuple(min(1, k * 1.04 + 0.02) for k in wall); deep = rnd.uniform(1.2, 1.7); style = rnd.choice(["solid", "solid", "rail", "segment", "segment"])
+    if lite: style = "lite"
     fab = FABRIC[rnd.randrange(len(FABRIC))]; pawn = rnd.choice([0.15, 0.3, 0.45, 0.6])
     for p, r in zip(c[:-1], c[1:]):
         d = math.dist(p, r)
@@ -139,6 +140,8 @@ def polykatoikia(P, bd, zg, zt, wall, rnd):
         for k in range(1, nfl + 1):
             z = zg + 3.6 + (k - 1) * 3.1 + 0.02
             spans = [(0.4, d - 0.4)] if style != "segment" else [(0.4 + i * bw + 0.35, 0.4 + (i + 1) * bw - 0.35) for i in range(nb)]
+            if lite:                                                                                # far blocks: one band per floor
+                obox(bm, (p[0] + ux * d / 2 + nx * deep / 2, p[1] + uy * d / 2 + ny * deep / 2), (ux, uy), d - 0.8, deep, z - 0.16, z + 0.95, white, PLAIN); continue
             for s0, s1 in spans:
                 m = (s0 + s1) / 2; ln = s1 - s0; cx, cy = p[0] + ux * m, p[1] + uy * m
                 obox(bm, (cx + nx * deep / 2, cy + ny * deep / 2), (ux, uy), ln, deep, z - 0.16, z, white, PLAIN)
@@ -148,6 +151,9 @@ def polykatoikia(P, bd, zg, zt, wall, rnd):
                 else:
                     obox(bm, (cx + nx * (deep - 0.05), cy + ny * (deep - 0.05)), (ux, uy), ln, 0.1, z, z + 0.95, white, PLAIN)
                     for e in (s0, s1): obox(bm, (p[0] + ux * e + nx * deep / 2, p[1] + uy * e + ny * deep / 2), (ux, uy), 0.1, deep, z, z + 0.95, white, PLAIN)
+            for i in range(nb):                                                                     # air-conditioning units on some balconies
+                if rnd.random() < 0.2:
+                    a0 = 0.4 + (i + rnd.uniform(0.2, 0.8)) * bw; obox(bm, (p[0] + ux * a0 + nx * 0.22, p[1] + uy * a0 + ny * 0.22), (ux, uy), 0.8, 0.32, z, z + 0.58, (0.80, 0.80, 0.78), PLAIN)
             for i in range(nb):                                                                     # awnings over some bays
                 if rnd.random() > pawn: continue
                 f = fab if rnd.random() < 0.8 else FABRIC[rnd.randrange(len(FABRIC))]; a0, a1 = 0.4 + i * bw + 0.25, 0.4 + (i + 1) * bw - 0.25
@@ -157,6 +163,9 @@ def polykatoikia(P, bd, zg, zt, wall, rnd):
     rp = body.buffer(-1.6)                                                                          # roof: stair bulkhead + solar heaters
     if rp.geom_type == "Polygon" and rp.area > 20:
         q = rp.representative_point(); obox(bm, (q.x, q.y), (1, 0), 4.5, 3.5, zt, zt + 2.7, wall, PLAIN); bx = rp.bounds; a = rnd.uniform(0, 3.14)
+        if lite: return
+        obox(bm, (q.x + 1.5, q.y + 1.0), (1, 0), 0.06, 0.06, zt + 2.7, zt + 2.7 + rnd.uniform(2.5, 4.5), (0.15, 0.15, 0.15), PLAIN)          # TV aerial
+        obox(bm, (q.x + 1.5, q.y + 1.0), (math.cos(a), math.sin(a)), 1.2, 0.04, zt + 4.6, zt + 4.64, (0.15, 0.15, 0.15), PLAIN)
         for _ in range(min(9, int(rp.area / 45))):
             q = Point(rnd.uniform(bx[0], bx[2]), rnd.uniform(bx[1], bx[3]))
             if rp.contains(q):
@@ -181,14 +190,18 @@ def theatre_kthbe(P, bd, zg, rnd):
     for sgn in (-1, 1): obox(bm, at(sgn * (W / 2 + 0.9), 0.9), u, 1.8, 1.8, z0, z1, stone, PLAIN)      # end piers
     obox(bm, at(0, 0.9), u, W + 3.6, 2.2, z1, z1 + 1.9, stone, PLAIN); obox(bm, at(0, 1.0), u, W + 4.2, 2.6, z1 + 1.9, z1 + 2.2, (0.9, 0.86, 0.76), PLAIN)
     for i in range(6): obox(bm, at(0, 2.2 + i * 0.35), u, W + 3, 0.35, zg - 0.2, zg + 0.9 - i * 0.16, (0.7, 0.67, 0.6), PLAIN)   # steps
+    q = at(0, 2.03); LABELS.append({"text": "ΕΤΑΙΡΕΙΑ ΜΑΚΕΔΟΝΙΚΩΝ ΣΠΟΥΔΩΝ", "pos": [q[0], q[1], z1 + 0.45], "dir": [-n[1], n[0]], "n": [n[0], n[1]], "size": 1.05})
 def theatre_royal(P, bd, zg, rnd):
     """Royal Theatre: long low hall in the park, shallow metal roof, a row of piers along each long side."""
     conc = (0.66, 0.64, 0.59); zt = zg + 9.5; walls(P, zg - 1.5, zt, zg, conc, WALLM, rnd)
     sides = mrr_sides(P); long = max(sides, key=lambda sd: sd[3]); short = min(sides, key=lambda sd: sd[3]); cen = P.centroid
     u = long[1]; n = long[2]; hl = long[3] / 2 + 1.5; hw = short[3] / 2 + 4.0; metal = (0.50, 0.52, 0.54)
     def pt(a, b, z): return (cen.x + u[0] * a + n[0] * b, cen.y + u[1] * a + n[1] * b, z)
-    v = [pt(-hl, -hw, zt), pt(hl, -hw, zt), pt(hl, 0, zt + 3.2), pt(-hl, 0, zt + 3.2), pt(hl, hw, zt), pt(-hl, hw, zt)]
-    bm.add(v, [(0, 1, 2), (0, 2, 3), (3, 2, 4), (3, 4, 5), (1, 4, 2), (0, 3, 5)], col=metal, mat=ROOFM)
+    bm.add([pt(-hl, -hw, zt + 0.3), pt(hl, -hw, zt + 0.3), pt(hl, hw, zt + 0.3), pt(-hl, hw, zt + 0.3)], [(0, 1, 2), (0, 2, 3)], col=(0.60, 0.61, 0.62), mat=ROOFM)
+    for sgn in (-1, 1):
+        obox(bm, pt(0, sgn * hw, 0)[:2], u, 2 * hl, 0.4, zt - 0.5, zt + 0.9, conc, PLAIN)
+        for i in range(int(2 * hl / 7)): obox(bm, pt(-hl + 5 + i * 7, sgn * hw * 0.45, 0)[:2], u, 2.6, 1.3, zt + 0.3, zt + 0.75, (0.04, 0.05, 0.07), GLASS)
+    for sgn in (-1, 1): obox(bm, pt(sgn * hl, 0, 0)[:2], (n[0], n[1]), 2 * hw, 0.4, zt - 0.5, zt + 0.9, conc, PLAIN)
     bm.add([pt(-hl, -hw, zt - 0.5), pt(hl, -hw, zt - 0.5), pt(hl, hw, zt - 0.5), pt(-hl, hw, zt - 0.5)], [(0, 2, 1), (0, 3, 2)], col=conc, mat=PLAIN)
     for sgn in (-1, 1):
         obox(bm, pt(0, sgn * (hw - 0.3), 0)[:2], u, 2 * hl, 0.5, zt - 0.5, zt + 0.1, conc, PLAIN)
@@ -211,11 +224,11 @@ for bd, P in zip(L["buildings"], allp):
         wall = (0.86, 0.80, 0.66); walls(P, zb, zt, zg, wall, WALLM, rnd); c = list(P.exterior.coords); q = P.centroid
         for p, r in zip(c[:-1], c[1:]): bm.add([(p[0], p[1], zt), (r[0], r[1], zt), (q.x, q.y, zt + 4.5)], [(0, 1, 2)], col=(0.52, 0.20, 0.10), mat=PLAIN)
         continue
-    if near and bd["h"] > 11 and not small and bd["kind"] not in ("church", "school", "sports_centre", "theatre", "military") and not bd["min_h"]:
-        polykatoikia(P, bd, zg, zt, wall, rnd); continue
+    if (near or dist < 650) and bd["h"] > 11 and not small and bd["kind"] not in ("church", "school", "sports_centre", "theatre", "military") and not bd["min_h"]:
+        polykatoikia(P, bd, zg, zt, wall, rnd, lite=not near); continue
     if bd["min_h"]: zb = zg + bd["min_h"]
     walls(P, zb, zt, zg, wall, PLAIN if small else WALLM, rnd); roof(P, zt, ROOF[rnd.randrange(len(ROOF))])
-bm.save("buildings")
+bm.save("buildings"); json.dump(LABELS, open(f"{root}/data/labels.json", "w"), ensure_ascii=False)
 json.dump(tower, open(f"{root}/data/tower_site.json", "w")); print("tower site", tower)
 # ---------- trees: placed where the satellite photo shows canopy ----------
 from PIL import Image
@@ -291,7 +304,7 @@ tm.save("trees"); print("trees", len(spots))
 
 # ================= the tower's surroundings (within 260 m) =================
 RS = 260.0; disc = Point(TX, TY).buffer(RS, 64); land = disc.difference(sea); S = Mesh()
-GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE, MARK, WALK, TERRA, MARBLE, DIRT, STELE, GREY = range(19)
+GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE, MARK, WALK, TERRA, MARBLE, DIRT, STELE, GREY, MATTE = range(20)
 def flat(poly, z, mat, col=(1, 1, 1)):
     for pp in (poly.geoms if hasattr(poly, "geoms") else [poly]):
         if pp.geom_type == "Polygon" and pp.area > 0.3:
@@ -455,15 +468,16 @@ for ls in (coastl.geoms if hasattr(coastl, "geoms") else [coastl]):
 # ---- cars: in lanes, facing the way the traffic flows, parked along the kerb in side streets ----
 CARCOL = [(0.8, 0.8, 0.8), (0.75, 0.75, 0.77), (0.05, 0.05, 0.06), (0.3, 0.31, 0.33), (0.5, 0.04, 0.04), (0.06, 0.12, 0.35), (0.55, 0.56, 0.58), (0.85, 0.85, 0.83), (0.6, 0.6, 0.62), (0.12, 0.13, 0.15)]
 crnd = random.Random(11); ncar = 0; placed = []
-def car(c, ux, uy):
+def car(c, ux, uy, z=None, wheels=True):
     col = CARCOL[crnd.randrange(len(CARCOL))]; ln = crnd.uniform(3.9, 4.6)
     body = [(-.5, .30), (-.5, .62), (-.46, .76), (-.22, .82), (.20, .84), (.46, .72), (.5, .52), (.5, .30)]
     cab = [(-.37, .80), (-.27, 1.30), (.08, 1.33), (.25, .83)]; van = crnd.random() < 0.1
     if van: body = [(-.5, .30), (-.5, 1.75), (.30, 1.78), (.42, 1.25), (.5, .8), (.5, .30)]; cab = [(.26, 1.2), (.31, 1.7), (.33, 1.7), (.44, 1.2)]; col = (0.82, 0.82, 0.8)
-    Z = FLAT + 0.06
+    Z = FLAT + 0.06 if z is None else z
     prism(S, [(a * ln, h) for a, h in body], c, (ux, uy), 0.88, Z, col, CAR)
     prism(S, [(a * ln, h) for a, h in cab], c, (ux, uy), 0.80 if not van else 0.86, Z, (1, 1, 1), CARGLASS)
     if not van: prism(S, [(-.27 * ln, 1.29), (-.27 * ln, 1.34), (.08 * ln, 1.37), (.08 * ln, 1.32)], c, (ux, uy), 0.81, Z, col, CAR)
+    if not wheels: return
     for a in (-.31, .31):
         for sd in (-1, 1): obox(S, (c[0] + ux * a * ln - uy * sd * 0.80, c[1] + uy * a * ln + ux * sd * 0.80), (ux, uy), 0.64, 0.2, Z + 0.02, Z + 0.64, (1, 1, 1), CARGLASS)
 def lane(ls, off, forward, lo, hi, clear, skip):
@@ -484,30 +498,122 @@ for r, ls in rl:
     else:
         for k in range(n):
             o = -w / 2 + (k + 0.5) * lw; lane(ls, o, one or o < 0, 9, 26, w / 2 + 4.0, 0.15)
-# stone pines: bare leaning trunk, broad flat crown of several clumps
-prnd = random.Random(5); pines = []
+# ---- life in the square: people, bins, park lights, traffic lights, tour boats ----
+lrnd = random.Random(8)
+SKIN = [(0.78, 0.60, 0.48), (0.70, 0.52, 0.40), (0.85, 0.68, 0.56), (0.55, 0.38, 0.28)]
+SHIRT = [(0.85, 0.85, 0.83), (0.10, 0.10, 0.12), (0.65, 0.12, 0.10), (0.12, 0.25, 0.50), (0.80, 0.70, 0.20), (0.20, 0.42, 0.30), (0.55, 0.55, 0.58), (0.86, 0.50, 0.20), (0.45, 0.25, 0.45)]
+PANTS = [(0.10, 0.12, 0.20), (0.08, 0.08, 0.09), (0.30, 0.32, 0.38), (0.45, 0.38, 0.28), (0.15, 0.20, 0.32)]
+def person(x, y, a, k=1.0):
+    u = (math.cos(a), math.sin(a)); n = (-u[1], u[0]); sh = SHIRT[lrnd.randrange(len(SHIRT))]; pa = PANTS[lrnd.randrange(len(PANTS))]; sk = SKIN[lrnd.randrange(len(SKIN))]; z = FLAT + 0.04
+    st = lrnd.uniform(0.0, 0.22) * k
+    for sd in (-1, 1): obox(S, (x + n[0] * sd * 0.09 * k + u[0] * sd * st, y + n[1] * sd * 0.09 * k + u[1] * sd * st), u, 0.16 * k, 0.14 * k, z, z + 0.86 * k, pa, MATTE)
+    obox(S, (x, y), u, 0.22 * k, 0.40 * k, z + 0.86 * k, z + 1.48 * k, sh, MATTE)
+    for sd in (-1, 1): obox(S, (x + n[0] * sd * 0.25 * k, y + n[1] * sd * 0.25 * k), u, 0.10 * k, 0.09 * k, z + 0.88 * k, z + 1.44 * k, sh if lrnd.random() < 0.6 else sk, MATTE)
+    v, t = blob(x, y, z + 1.62 * k, 0.105 * k, 0.125 * k, lrnd, 8, 5); S.add(v, t, col=sk, mat=MATTE)
+walkable = unary_union([prom, terra, strip]).difference(grass.buffer(0.7)).difference(ringpoly.buffer(0.6)).difference(lawn.buffer(0.3)).difference(drive.buffer(3)); pwalk = prep(walkable); wb = walkable.bounds; npeople = 0
+while npeople < 190:
+    x, y = lrnd.uniform(wb[0], wb[2]), lrnd.uniform(wb[1], wb[3])
+    if not pwalk.contains(Point(x, y)) or math.hypot(x - TX, y - TY) > 200: continue
+    a = lrnd.uniform(0, 6.28); k = 0.62 if lrnd.random() < 0.08 else lrnd.uniform(0.93, 1.07); person(x, y, a, k); npeople += 1
+    if lrnd.random() < 0.4 and pwalk.contains(Point(x - math.sin(a) * 0.62, y + math.cos(a) * 0.62)): person(x - math.sin(a) * 0.62, y + math.cos(a) * 0.62, a + lrnd.uniform(-0.2, 0.2), lrnd.uniform(0.9, 1.05)); npeople += 1
+for i in range(int(LN / 11.5)):                                                                   # litter bins by the benches
+    m = 6 + i * 11.5 + 3.3; q = (P0[0] + sx * m + wx * 4.3, P0[1] + sy * m + wy * 4.3)
+    if pland.contains(Point(q)): obox(S, q, (sx, sy), 0.45, 0.45, FLAT + 0.02, FLAT + 0.9, (1, 1, 1), LAMP)
+for off in (10.5, 22.0):                                                                          # tall grey park lights with twin heads
+    for i in range(int(LN / 24) + 1):
+        m = 8 + i * 24; q = (P0[0] + sx * m + wx * off, P0[1] + sy * m + wy * off)
+        if not pland.contains(Point(q)): continue
+        obox(S, q, (sx, sy), 0.16, 0.16, FLAT, FLAT + 8.0, (0.5, 0.5, 0.52), MATTE); obox(S, q, (sx, sy), 1.5, 0.08, FLAT + 7.9, FLAT + 8.0, (0.5, 0.5, 0.52), MATTE)
+        for e in (-0.75, 0.75): obox(S, (q[0] + sx * e, q[1] + sy * e), (sx, sy), 0.5, 0.32, FLAT + 7.75, FLAT + 7.9, (1, 1, 1), GLOW)
+nsig = 0; seen = set()
+for jx, jy in JUNC:                                                                               # traffic lights at the junctions
+    key = (round(jx / 3), round(jy / 3))
+    if key in seen or math.hypot(jx - TX, jy - TY) > RS - 20: continue
+    seen.add(key)
+    for a in (0.8, 2.4, 3.9, 5.5):
+        for rr in (7, 10, 13):
+            q = Point(jx + rr * math.cos(a), jy + rr * math.sin(a))
+            if walk.contains(q):
+                obox(S, (q.x, q.y), (1, 0), 0.12, 0.12, FLAT + 0.2, FLAT + 3.3, (1, 1, 1), LAMP); obox(S, (q.x, q.y), (math.cos(a), math.sin(a)), 0.3, 0.3, FLAT + 2.5, FLAT + 3.45, (0.03, 0.03, 0.03), MATTE)
+                for kz, cc in ((3.25, (0.9, 0.05, 0.05)), (2.95, (0.9, 0.6, 0.05)), (2.65, (0.05, 0.7, 0.2))): obox(S, (q.x - math.cos(a) * 0.16, q.y - math.sin(a) * 0.16), (math.cos(a), math.sin(a)), 0.04, 0.18, FLAT + kz - 0.09, FLAT + kz + 0.09, cc, MATTE)
+                nsig += 1; break
+def hull(cx, cy, ang, Lb, Wb, z0, z1, col, deck):
+    n = 14; half = []
+    for i in range(n + 1):
+        sp = -Lb / 2 + Lb * i / n; t = sp / (Lb / 2); w = Wb / 2 * (1 - max(0, t) ** 2.4) * (1 - 0.35 * max(0, -t) ** 3); half.append((sp, max(w, 0.05)))
+    ring = [(a, w) for a, w in half] + [(a, -w) for a, w in half[::-1]]; ca, sa = math.cos(ang), math.sin(ang)
+    pts = [(cx + a * ca - w * sa, cy + a * sa + w * ca) for a, w in ring]; Pg = Polygon(pts).buffer(0)
+    c = list(Pg.exterior.coords)
+    for p_, r_ in zip(c[:-1], c[1:]): S.add([(p_[0], p_[1], z0), (r_[0], r_[1], z0), (r_[0], r_[1], z1), (p_[0], p_[1], z1)], Q, col=col, mat=MATTE); S.add([(r_[0], r_[1], z0), (p_[0], p_[1], z0), (p_[0], p_[1], z1), (r_[0], r_[1], z1)], Q, col=col, mat=MATTE)
+    v, t = tri(Pg); S.add(np.c_[v, np.full(len(v), z1 - 0.3)], t, col=deck, mat=MATTE); return (ca, sa)
+for cx, cy, ang in ((TX - 66, TY - 56, 2.2), (TX - 59, TY - 90, 2.05)):                           # the wooden tour boats moored off the quay
+    u = hull(cx, cy, ang, 22, 5.6, 0.2, 2.6, (0.20, 0.11, 0.06), (0.42, 0.28, 0.16))
+    obox(S, (cx - u[0] * 6.5, cy - u[1] * 6.5), u, 6, 4.2, 2.3, 4.6, (0.26, 0.15, 0.08), MATTE); obox(S, (cx + u[0] * 7.5, cy + u[1] * 7.5), u, 3.5, 3.0, 2.3, 3.6, (0.26, 0.15, 0.08), MATTE)
+    for m_, hgt in ((-1.5, 14.0), (4.5, 11.5)):
+        q = (cx + u[0] * m_, cy + u[1] * m_); obox(S, q, u, 0.26, 0.26, 2.3, 2.3 + hgt, (0.25, 0.16, 0.09), MATTE)
+        for hz in (0.55, 0.85): obox(S, q, (-u[1], u[0]), 5.5 * (1.3 - hz), 0.14, 2.3 + hgt * hz, 2.3 + hgt * hz + 0.14, (0.25, 0.16, 0.09), MATTE)
+for cx, cy, ang, Lb in ((-1350, -950, 0.5, 150), (-2300, -1700, 1.2, 190), (-800, -2100, 2.6, 120)):   # ships in the gulf
+    u = hull(cx, cy, ang, Lb, Lb * 0.16, 0.2, 9.0, (0.10, 0.12, 0.16), (0.45, 0.20, 0.16))
+    obox(S, (cx - u[0] * Lb * 0.36, cy - u[1] * Lb * 0.36), u, Lb * 0.12, Lb * 0.13, 8.7, 25.0, (0.85, 0.85, 0.83), MATTE); obox(S, (cx - u[0] * Lb * 0.36, cy - u[1] * Lb * 0.36), u, 4, 4, 25, 31, (0.7, 0.3, 0.1), MATTE)
+# ---- Mount Olympus across the gulf: a hazy ridge on the horizon (true bearing ~216 deg, drawn nearer and lower at the same angle) ----
+mr = random.Random(2); D = 27000.0; prev = None
+for az in range(184, 256):
+    hgt = 1000 * math.exp(-((az - 216) / 8.0) ** 2) + 380 * math.exp(-((az - 236) / 7.0) ** 2) + 260 * math.exp(-((az - 199) / 9.0) ** 2) + 120 + mr.uniform(-45, 45)
+    a = math.radians(az); cur = (D * math.sin(a), D * math.cos(a), hgt)
+    if prev: S.add([(prev[0], prev[1], 0), (cur[0], cur[1], 0), (cur[0], cur[1], cur[2]), (prev[0], prev[1], prev[2])], [(0, 1, 2), (0, 2, 3), (0, 2, 1), (0, 3, 2)], col=(0.36, 0.44, 0.54), mat=MATTE)
+    prev = cur
+# ---- cars in the rest of the city: sparse traffic and parked cars on every street outside the square ----
+nfar = 0; frnd = crnd
+def far_lane(ls, off, forward, lo, hi, skip):
+    global nfar
+    d = frnd.uniform(2, hi)
+    while d < ls.length - 2.5:
+        a, b = ls.interpolate(d - 0.5), ls.interpolate(d + 0.5); ux, uy = b.x - a.x, b.y - a.y; n = math.hypot(ux, uy) or 1; ux, uy = ux / n, uy / n
+        q = ls.interpolate(d); c = (q.x - uy * off, q.y + ux * off); d += frnd.uniform(lo, hi)
+        if frnd.random() < skip or math.hypot(c[0] - TX, c[1] - TY) < RS + 4: continue
+        pt = Point(c)
+        if psea.contains(pt) or any(polys[k].distance(pt) < 1.3 for k in btree.query(pt.buffer(1.5))): continue
+        nfar += 1; car(c, ux, uy, land_h(*c) + 0.05, False) if forward else car(c, -ux, -uy, land_h(*c) + 0.05, False)
+for r in L["roads"]:
+    if r["kind"] not in DRIVE: continue
+    ls = LineString(r["line"])
+    if ls.length < 14: continue
+    w = r["w"]; one = r.get("oneway")
+    if w <= 8.5:
+        for o in (-(w / 2 - 1.05), w / 2 - 1.05): far_lane(ls, o, one or o < 0, 5.4, 8.0, 0.45)
+        far_lane(ls, 0.0 if one else -0.9, True, 40, 110, 0.3)
+    else:
+        nl_ = max(2, round(w / 3.4))
+        for k in range(nl_): o = -w / 2 + (k + 0.5) * w / nl_; far_lane(ls, o, one or o < 0, 16, 55, 0.2)
+# ---- stone pines: tall bare leaning trunks, broad ragged umbrella crowns; the largest stand close against the tower ----
+prnd = random.Random(5); pines = []; forced = []
+for deg, rr in ((128, 19.0), (152, 16.5), (176, 18.5), (204, 17.0), (232, 19.5), (258, 16.8), (287, 18.8), (316, 17.4), (300, 26.0), (215, 27.5), (160, 27.0)):
+    q = rp(rr, math.radians(deg))
+    if not doorway.buffer(1.5).contains(Point(q)) and not ringpoly.contains(Point(q)): forced.append(q); pines.append(q)
 for (x, y) in sorted(near_spots, key=lambda p: prnd.random()):
-    if all(math.hypot(x - a, y - b) > 6.5 for a, b in pines) and not drive.buffer(1).contains(Point(x, y)) and not ringpoly.buffer(0.8).contains(Point(x, y)) and not doorway.contains(Point(x, y)): pines.append((x, y))
+    if all(math.hypot(x - a, y - b) > 5.2 for a, b in pines) and not drive.buffer(1).contains(Point(x, y)) and not ringpoly.buffer(0.8).contains(Point(x, y)) and not doorway.contains(Point(x, y)) and not strip.contains(Point(x, y)): pines.append((x, y))
 for (x, y) in pines:
-    big = lawn.buffer(25).contains(Point(x, y)); H = prnd.uniform(8, 12) if big else prnd.uniform(5, 9); cr = H * prnd.uniform(0.38, 0.5)
-    lean = prnd.uniform(0, 2 * math.pi); lx, ly = math.cos(lean) * H * 0.12, math.sin(lean) * H * 0.12; K = 5; rings = []
+    dT = math.hypot(x - TX, y - TY); big = (x, y) in forced
+    H = prnd.uniform(11.5, 14.5) if big else (prnd.uniform(8.5, 12.5) if dT < 75 else prnd.uniform(6.5, 10.5)); cr = H * prnd.uniform(0.42, 0.60)
+    lean = math.atan2(y - TY, x - TX) + prnd.uniform(-0.9, 0.9) if dT < 35 else prnd.uniform(0, 2 * math.pi); lk = prnd.uniform(0.08, 0.24)
+    lx, ly = math.cos(lean) * H * lk, math.sin(lean) * H * lk; K = 6; rings = []
     for i in range(K + 1):
-        f = i / K; cx, cy, cz = x + lx * f * f, y + ly * f * f, FLAT + H * 0.72 * f; rr = 0.28 * (1 - 0.45 * f) * (H / 9)
-        rings.append([(cx + rr * math.cos(j * math.pi / 3), cy + rr * math.sin(j * math.pi / 3), cz) for j in range(6)])
+        f = i / K; cx, cy, cz = x + lx * f ** 1.6, y + ly * f ** 1.6, FLAT + H * 0.74 * f; rr_ = 0.30 * (1 - 0.5 * f) * (H / 9)
+        rings.append([(cx + rr_ * math.cos(j * math.pi / 3), cy + rr_ * math.sin(j * math.pi / 3), cz) for j in range(6)])
     v = [q for ring in rings for q in ring]; t = []
     for i in range(K):
         for j in range(6): a = i * 6 + j; b = i * 6 + (j + 1) % 6; t += [(a, b, b + 6), (a, b + 6, a + 6)]
-    S.add(v, t, col=(1, 1, 1), mat=BARK); tx_, ty_, tz_ = x + lx, y + ly, FLAT + H * 0.72
-    g = (prnd.uniform(0.035, 0.06), prnd.uniform(0.09, 0.14), prnd.uniform(0.025, 0.045))
-    for k in range(prnd.randint(6, 9)):
-        a = prnd.uniform(0, 2 * math.pi); d = cr * prnd.uniform(0.0, 0.72) if k else 0; rx = cr * prnd.uniform(0.38, 0.6)
-        bx, by, bz = tx_ + d * math.cos(a), ty_ + d * math.sin(a), tz_ + H * prnd.uniform(0.06, 0.2)
-        rzz = rx * prnd.uniform(0.42, 0.58); gk = tuple(c * prnd.uniform(0.8, 1.25) for c in g)
+    S.add(v, t, col=(1, 1, 1), mat=BARK); tx_, ty_, tz_ = x + lx, y + ly, FLAT + H * 0.74
+    g = (prnd.uniform(0.030, 0.055), prnd.uniform(0.085, 0.135), prnd.uniform(0.022, 0.042))
+    for k in range(prnd.randint(8, 12)):
+        a = prnd.uniform(0, 2 * math.pi); d = cr * prnd.uniform(0.15, 0.9) if k else 0; rx = cr * prnd.uniform(0.32, 0.55)
+        bx, by, bz = tx_ + d * math.cos(a), ty_ + d * math.sin(a), tz_ + H * prnd.uniform(0.04, 0.2) - d * 0.12
+        rzz = rx * prnd.uniform(0.36, 0.52); gk = tuple(c * prnd.uniform(0.75, 1.3) for c in g)
         vv, tt = blob(bx, by, bz, rx * 0.86, rzz * 0.86, prnd, 12, 7); S.add(vv, tt, col=tuple(c * 0.45 for c in gk), mat=PINE)
-        foliage(S, bx, by, bz + rzz * 0.15, rx, rzz, 1100, 0.26, gk, prnd, PINE)
+        foliage(S, bx, by, bz + rzz * 0.15, rx, rzz, 1300, 0.21, gk, prnd, PINE)
         WEB_CLUMPS.append([round(bx, 2), round(by, 2), round(bz + rzz * 0.15, 2), round(rx, 2), round(rzz, 2)] + [round(c, 3) for c in gk])
-        a0 = np.array([tx_, ty_, tz_ - 0.8]); b0 = np.array([bx, by, bz - rzz * 0.4]); sd = np.cross(b0 - a0, (0, 0, 1.0)); sd = sd / (np.linalg.norm(sd) + 1e-6) * 0.09
-        S.add([a0 - sd, a0 + sd, b0 + sd * 0.5, b0 - sd * 0.5, a0 + (0, 0, 0.16), b0 + (0, 0, 0.1)], [(0, 1, 2), (0, 2, 3), (0, 3, 5), (0, 5, 4), (1, 4, 5), (1, 5, 2)], col=(1, 1, 1), mat=BARK)
-S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("planters", nplant, "small trees", ndec, "stelae", nstele); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
+        a0 = np.array([tx_, ty_, tz_ - 0.8]); b0 = np.array([bx, by, bz - rzz * 0.4]); sd = np.cross(b0 - a0, (0, 0, 1.0)); sd = sd / (np.linalg.norm(sd) + 1e-6) * 0.11
+        S.add([a0 - sd, a0 + sd, b0 + sd * 0.5, b0 - sd * 0.5, a0 + (0, 0, 0.2), b0 + (0, 0, 0.12)], [(0, 1, 2), (0, 2, 3), (0, 3, 5), (0, 5, 4), (1, 4, 5), (1, 5, 2)], col=(1, 1, 1), mat=BARK)
+S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("planters", nplant, "small trees", ndec, "stelae", nstele); print("people", npeople, "signals", nsig, "far cars", nfar); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
 
 json.dump({"trees": WEB_TREES, "clumps": WEB_CLUMPS, "tower": [TX, TY, FLAT], "bounds": [x0, y0, x1, y1]}, open(f"{root}/data/web_trees.json", "w"))

@@ -21,7 +21,7 @@ def pavers(name, pal, joint, cols=10, rows=20):       # tile = 2 m: 20 x 10 cm p
     fy = y / bh - np.floor(y / bh); fx = xo / bw - np.floor(xo / bw); j = (fy < 2.2 / bh) | (fx < 2.2 / bw)
     a[j] = np.array(joint) / 255; save(name, a)
 aggregate("agg_beige", (203, 189, 160), (176, 150, 96)); aggregate("agg_grey", (168, 166, 158), (120, 118, 112))
-pavers("pav_terra", [(172, 124, 100), (162, 114, 92), (184, 138, 112), (150, 110, 94), (166, 132, 116), (176, 118, 92), (158, 122, 104)], (112, 94, 82))
+pavers("pav_terra", [(170, 138, 120), (160, 130, 114), (180, 150, 130), (152, 128, 116), (166, 144, 132), (174, 134, 114), (158, 136, 124)], (118, 104, 94))
 man = json.load(open(f"{out}/assets.json"))
 for k in ("agg_beige", "agg_grey", "pav_terra"): man[k] = {"diff": f"data/assets/{k}.jpg"}
 json.dump(man, open(f"{out}/assets.json", "w"), indent=1); print("paving textures ok")
