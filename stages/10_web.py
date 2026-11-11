@@ -25,7 +25,7 @@ export("quay", "quay", {0: ("quay", False, False)})
 export("bld", "buildings", {0: ("wall", True, True), 1: ("roof", False, True), 2: ("plain", False, True), 3: ("glass", False, True)})
 export("tower", "tower", {0: ("stone", True, False), 1: ("dark", False, False), 2: ("pave", False, False), 3: ("white", False, False), 4: ("blue", False, False), 5: ("metal", False, False), 6: ("brick", True, False), 7: ("cap", False, False)}, offset=T)
 export("site", "site", {0: ("grass", True, False), 1: ("paving", True, False), 2: ("cobble", True, False), 3: ("asphalt", True, False), 4: ("kerb", False, False), 5: ("prom", True, False),
-                        6: ("lamp", False, False), 7: ("glow", False, False), 8: ("car", False, True), 9: ("carglass", False, False), 10: ("bark", False, False), 12: ("mark", False, False), 13: ("walk", True, False)}, drop=(11,))
+                        6: ("lamp", False, False), 7: ("glow", False, False), 8: ("car", False, True), 9: ("carglass", False, False), 10: ("bark", False, False), 12: ("mark", False, False), 13: ("walk", True, False), 14: ("terra", True, False), 15: ("marble", False, False), 16: ("dirt", False, False)}, drop=(11,))
 W = json.load(open(f"{root}/data/web_trees.json"))
 np.array(W["trees"], np.float32).tofile(f"{out}/data/trees.bin"); np.array(W["clumps"], np.float32).tofile(f"{out}/data/clumps.bin")
 man["trees"] = {"file": "data/trees.bin", "count": len(W["trees"]), "stride": 8}; man["clumps"] = {"file": "data/clumps.bin", "count": len(W["clumps"]), "stride": 8}
@@ -33,7 +33,7 @@ img = json.load(open(f"{root}/data/imagery.json")); man["sat"] = {}
 for key, size in (("near", 4096), ("city", 2048), ("far", 2048)):
     im = Image.open(f"{root}/{img[key]['file']}").convert("RGB").resize((size, size), Image.LANCZOS); im.save(f"{out}/tex/sat_{key}.jpg", quality=84); man["sat"][key] = {"file": f"tex/sat_{key}.jpg", "extent": img[key]["extent"]}
 A = json.load(open(f"{root}/data/assets/assets.json"))
-for key in ("stone", "brick", "prom", "cobble", "grass", "asphalt"):
+for key in ("stone", "brick", "paving", "prom", "cobble", "grass", "asphalt"):
     for kind in ("diff", "nor"):
         Image.open(f"{root}/{A[key][kind]}").convert("RGB").resize((1024, 1024), Image.LANCZOS).save(f"{out}/tex/{key}_{kind}.jpg", quality=82)
 json.dump(man, open(f"{out}/data/manifest.json", "w"), indent=1)

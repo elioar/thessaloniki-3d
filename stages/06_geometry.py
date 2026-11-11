@@ -291,7 +291,7 @@ tm.save("trees"); print("trees", len(spots))
 
 # ================= the tower's surroundings (within 260 m) =================
 RS = 260.0; disc = Point(TX, TY).buffer(RS, 64); land = disc.difference(sea); S = Mesh()
-GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE, MARK, WALK = range(14)
+GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE, MARK, WALK, TERRA, MARBLE, DIRT = range(17)
 def flat(poly, z, mat, col=(1, 1, 1)):
     for pp in (poly.geoms if hasattr(poly, "geoms") else [poly]):
         if pp.geom_type == "Polygon" and pp.area > 0.3:
@@ -300,14 +300,24 @@ bu = unary_union([p for p in polys if p.distance(TW) < RS + 30])
 from shapely.geometry import LineString
 roads = [r for r in L["roads"] if LineString(r["line"]).distance(TW) < RS]
 drive = unary_union([LineString(r["line"]).buffer(r["w"] / 2, cap_style=1) for r in roads if r["kind"] in ("primary", "secondary", "tertiary", "residential", "unclassified", "trunk", "service", "living_street")]).intersection(land)
-greens = [Polygon(p[0], p[1:]).buffer(0) for it in L["green"] for p in it["poly"]]
-greens = [g for g in greens if g.distance(TW) < RS and g.area < 3200]   # big "park" outlines are mostly paving, not lawn
-lawn = min((g for g in greens if g.distance(TW) < 13 and g.area > 300), key=lambda g: g.area)   # the lawn the tower stands on
+gl = [(Polygon(p[0], p[1:]).buffer(0), it.get("name") or "") for it in L["green"] for p in it["poly"]]
+plaza = unary_union([g for g, n in gl if "Πλατεία" in n and g.distance(TW) < 5])                  # the square's outline: paving, not lawn
+greens = [g for g, n in gl if g.distance(TW) < RS and "Πλατεία" not in n and g.distance(TW) > 13 and not g.is_empty]
+# the tower's own lawn, read off the aerial photo: a horseshoe of stone panels 24-31 m out on the sea side, open towards the road
+R_IN, R_OUT, NP, SPAN, R_BACK = 24.0, 31.0, 10, math.radians(220), 17.5
+A0 = math.radians(225) - SPAN / 2; ANG = [A0 + SPAN * i / NP for i in range(NP + 1)]
+def rp(r, a): return (TX + r * math.cos(a), TY + r * math.sin(a))
+back = [rp(R_BACK, A0 + SPAN + (2 * math.pi - SPAN) * i / 12) for i in range(1, 12)]
+lawn = Polygon([rp(R_IN, a) for a in ANG] + back); ringpoly = Polygon([rp(R_OUT, a) for a in ANG] + [rp(R_IN, a) for a in ANG[::-1]])
+lawn = lawn.difference(drive.buffer(3.0)); ringpoly = ringpoly.difference(drive.buffer(3.0))
 walk = drive.buffer(2.6, join_style=1).difference(drive).intersection(land).difference(bu.buffer(0.1))      # raised pavements beside every road
-grass = unary_union(greens).intersection(land).difference(drive.buffer(2.6))
-prom = sea.buffer(15).intersection(land).difference(grass).difference(drive)
+grass = unary_union(greens).intersection(land).difference(drive.buffer(2.6)).difference(lawn.buffer(8))
+prom = sea.buffer(21).intersection(land).difference(grass).difference(drive)
+terra = plaza.intersection(land).difference(prom).difference(drive.buffer(2.6)) if not plaza.is_empty else Polygon()
 flat(land.difference(bu.buffer(0.2)), 0.02, PAVE)
+flat(terra, 0.03, TERRA)
 flat(prom, 0.04, PROM)
+flat(sea.buffer(1.1).intersection(land), 0.05, CURB)                                              # stone coping along the quay
 flat(drive, 0.06, ASPHALT)
 flat(walk, 0.20, WALK)
 for pp in (walk.geoms if hasattr(walk, "geoms") else [walk]):                                    # kerb faces
@@ -368,23 +378,46 @@ for r, ls in rl:
             for i in range(int((w - 0.6) / 1.0)):
                 o = -w / 2 + 0.55 + i * 1.0; c = (q.x - uy * o, q.y + ux * o)
                 if pland.contains(Point(c)): obox(S, c, (ux, uy), 3.0, 0.5, ZM - 0.005, ZM, (1, 1, 1), MARK)
-flat(grass.difference(Point(TX, TY).buffer(P_R := 11.9)), 0.10, GRASS)
-kerb = grass.boundary.buffer(0.22).intersection(land).difference(Point(TX, TY).buffer(13)); flat(kerb, 0.20, CURB)
-for pp in (kerb.geoms if hasattr(kerb, "geoms") else [kerb]):                                    # kerb sides
-    for ring in [pp.exterior] + list(pp.interiors):
-        c = list(ring.coords)
-        for p, r in zip(c[:-1], c[1:]): S.add([(p[0], p[1], FLAT), (r[0], r[1], FLAT), (r[0], r[1], FLAT + .2), (p[0], p[1], FLAT + .2)], Q, mat=CURB)
-# cobbled panels fanning out from the lawn on the sea side, each a little ramp
-band = lawn.buffer(7.5, join_style=2).difference(lawn.buffer(1.2, join_style=2)).intersection(land).difference(drive.buffer(1)).difference(grass)
-panels = 0
-for k in range(16):
-    a0 = math.radians(k * 22.5 + 2.2); a1 = math.radians((k + 1) * 22.5 - 2.2)
-    wedge = Polygon([(TX, TY)] + [(TX + 80 * math.cos(a0 + (a1 - a0) * i / 6), TY + 80 * math.sin(a0 + (a1 - a0) * i / 6)) for i in range(7)])
-    piece = band.intersection(wedge)
-    for pp in (piece.geoms if hasattr(piece, "geoms") else [piece]):
-        if pp.geom_type != "Polygon" or pp.area < 25 or sea.distance(pp) > 75: continue
-        v, t = tri(pp.segmentize(1.5)); dz = np.array([0.06 + 0.5 * max(0, 1 - lawn.distance(Point(q)) / 7.5) for q in v])
-        S.add(np.c_[v, FLAT + dz], t, mat=COBBLE); panels += 1
+def wallring(poly, z0, z1, mat):
+    for pp in (poly.geoms if hasattr(poly, "geoms") else [poly]):
+        if pp.geom_type != "Polygon": continue
+        for ring in [pp.exterior] + list(pp.interiors):
+            c = list(ring.coords)
+            for p, r in zip(c[:-1], c[1:]): S.add([(p[0], p[1], FLAT + z0), (r[0], r[1], FLAT + z0), (r[0], r[1], FLAT + z1), (p[0], p[1], FLAT + z1)], Q, mat=mat)
+nplant = 0
+for g in (grass.geoms if hasattr(grass, "geoms") else [grass]):
+    if g.geom_type != "Polygon" or g.area < 8: continue
+    if g.area < 1300:                                                       # raised planter with a white marble seat wall
+        inner = g.buffer(-0.4, join_style=2); nplant += 1
+        if inner.is_empty: continue
+        flat(inner, 0.42, GRASS); rim = g.difference(inner); flat(rim, 0.5, MARBLE); wallring(rim, 0.02, 0.5, MARBLE)
+        c = list(g.minimum_rotated_rectangle.exterior.coords)                         # a row of white marble blocks along each long side
+        sides = sorted([(math.dist(c[i], c[i + 1]), c[i], c[i + 1]) for i in range(4)], reverse=True)[:2]
+        for d, p, r in sides:
+            ux, uy = (r[0] - p[0]) / d, (r[1] - p[1]) / d; nx, ny = uy, -ux
+            if g.contains(Point((p[0] + r[0]) / 2 + nx, (p[1] + r[1]) / 2 + ny)): nx, ny = -nx, -ny
+            for i in range(int(d / 3.2) + 1):
+                q = (p[0] + ux * (0.6 + i * 3.2) + nx * 2.4, p[1] + uy * (0.6 + i * 3.2) + ny * 2.4)
+                if pland.contains(Point(q)) and not drive.buffer(3).contains(Point(q)) and grass.distance(Point(q)) > 0.8 and lawn.distance(Point(q)) > 9: obox(S, q, (ux, uy), 0.5, 0.5, FLAT + 0.02, FLAT + 0.48, (1, 1, 1), MARBLE)
+    else:                                                                    # big lawns lie flush with a thin kerb
+        flat(g, 0.10, GRASS); flat(g.boundary.buffer(0.2).intersection(land), 0.16, CURB)
+# the tower lawn: grass, a beaten path round the base, two paths out to the ring, a paved way to the door
+DOOR = math.radians(85); tdisc = Point(TX, TY).buffer(11.9, 48)
+basepath = Point(TX, TY).buffer(13.8, 48).difference(tdisc)
+spokes = unary_union([LineString([rp(13, a), rp(R_IN, a)]).buffer(0.9) for a in (math.radians(190), math.radians(265))])
+doorway = LineString([rp(11.5, DOOR), rp(R_BACK + 6, DOOR)]).buffer(2.0, cap_style=2)
+dirt = basepath.union(spokes).intersection(lawn).difference(doorway)
+flat(lawn.difference(tdisc).difference(dirt).difference(doorway), 0.10, GRASS); flat(dirt, 0.09, DIRT); flat(doorway.difference(tdisc).intersection(land).difference(drive.buffer(2.6)), 0.11, PROM)
+backarc = LineString([rp(R_BACK, A0 + SPAN)] + back + [rp(R_BACK, A0)]).buffer(0.3).difference(doorway.buffer(0.3)).difference(drive.buffer(3.0))   # low wall on the road side
+flat(backarc, 0.85, CURB); wallring(backarc, 0.02, 0.85, CURB)
+# the horseshoe: stone-set panels in a pale frame, each tilting up towards the lawn
+flat(ringpoly, 0.07, MARBLE); panels = 0
+for i in range(NP):
+    gp = math.radians(1.3); a0, a1 = ANG[i] + gp, ANG[i + 1] - gp
+    pp = Polygon([rp(R_IN + 0.5, a0), rp(R_OUT - 0.5, a0), rp(R_OUT - 0.5, a1), rp(R_IN + 0.5, a1)]).intersection(ringpoly)
+    if pp.is_empty or pp.geom_type != "Polygon": continue
+    v, t = tri(pp.segmentize(1.5)); dz = np.array([0.10 + 0.35 * (1 - (math.hypot(q[0] - TX, q[1] - TY) - R_IN) / (R_OUT - R_IN)) for q in v])
+    S.add(np.c_[v, FLAT + dz], t, mat=COBBLE); panels += 1
 # lamp posts along the promenade
 coastl = sea.buffer(4.5).boundary.intersection(land.buffer(-1)); nl = 0
 for ls in (coastl.geoms if hasattr(coastl, "geoms") else [coastl]):
@@ -429,7 +462,7 @@ for r, ls in rl:
 # stone pines: bare leaning trunk, broad flat crown of several clumps
 prnd = random.Random(5); pines = []
 for (x, y) in sorted(near_spots, key=lambda p: prnd.random()):
-    if all(math.hypot(x - a, y - b) > 6.5 for a, b in pines) and not drive.buffer(1).contains(Point(x, y)): pines.append((x, y))
+    if all(math.hypot(x - a, y - b) > 6.5 for a, b in pines) and not drive.buffer(1).contains(Point(x, y)) and not ringpoly.buffer(0.8).contains(Point(x, y)) and not doorway.contains(Point(x, y)): pines.append((x, y))
 for (x, y) in pines:
     big = lawn.buffer(25).contains(Point(x, y)); H = prnd.uniform(8, 12) if big else prnd.uniform(5, 9); cr = H * prnd.uniform(0.38, 0.5)
     lean = prnd.uniform(0, 2 * math.pi); lx, ly = math.cos(lean) * H * 0.12, math.sin(lean) * H * 0.12; K = 5; rings = []
@@ -450,6 +483,6 @@ for (x, y) in pines:
         WEB_CLUMPS.append([round(bx, 2), round(by, 2), round(bz + rzz * 0.15, 2), round(rx, 2), round(rzz, 2)] + [round(c, 3) for c in gk])
         a0 = np.array([tx_, ty_, tz_ - 0.8]); b0 = np.array([bx, by, bz - rzz * 0.4]); sd = np.cross(b0 - a0, (0, 0, 1.0)); sd = sd / (np.linalg.norm(sd) + 1e-6) * 0.09
         S.add([a0 - sd, a0 + sd, b0 + sd * 0.5, b0 - sd * 0.5, a0 + (0, 0, 0.16), b0 + (0, 0, 0.1)], [(0, 1, 2), (0, 2, 3), (0, 3, 5), (0, 5, 4), (1, 4, 5), (1, 5, 2)], col=(1, 1, 1), mat=BARK)
-S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
+S.save("site"); print("crossings", ncross, "junctions", len(JUNC)); print("planters", nplant); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
 
 json.dump({"trees": WEB_TREES, "clumps": WEB_CLUMPS, "tower": [TX, TY, FLAT], "bounds": [x0, y0, x1, y1]}, open(f"{root}/data/web_trees.json", "w"))

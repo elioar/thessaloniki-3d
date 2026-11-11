@@ -107,6 +107,7 @@ async function main() {
     grass: fade(pbr('grass', 0.28, rgb(0.75, 1.15, 0.5))), paving: fade(pbr('prom', 0.3, rgb(1.5, 1.36, 1.14))), cobble: fade(pbr('cobble', 0.45, rgb(1, 1, 1))),
     asphalt: fade(pbr('asphalt', 0.2, rgb(0.75, 0.75, 0.78))), prom: fade(pbr('prom', 0.22, rgb(1.6, 1.55, 1.45))),
     mark: fade(new THREE.MeshStandardMaterial({ color: 0xe9e9e2, roughness: 0.7 })), walk: fade(pbr('prom', 0.5, rgb(1.3, 1.3, 1.27))),
+    terra: fade(pbr('paving', 0.4, rgb(1.25, 1.0, 0.88))), dirt: fade(new THREE.MeshStandardMaterial({ color: 0xa08a62, roughness: 1 })), marble: new THREE.MeshStandardMaterial({ color: 0xdcdcd6, roughness: 0.6 }),
     kerb: new THREE.MeshStandardMaterial({ color: 0x9d988c, roughness: 0.9 }), lamp: new THREE.MeshStandardMaterial({ color: 0x0c1f18, roughness: 0.5, metalness: 0.5 }),
     glow: new THREE.MeshStandardMaterial({ color: 0xfff3d6, emissive: 0xffe6b0, emissiveIntensity: 0.6 }),
     car: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.45 }), carglass: new THREE.MeshStandardMaterial({ color: 0x06080a, roughness: 0.12 }),
@@ -114,7 +115,7 @@ async function main() {
   };
   for (const k of ['stone', 'brick', 'cap', 'dark', 'pave', 'metal', 'wall', 'roof', 'glass', 'quay', 'kerb', 'lamp', 'car', 'carglass']) M[k].side = THREE.DoubleSide;   // some faces wind inward
   M.mark.polygonOffsetFactor = -6; M.mark.polygonOffsetUnits = -6; M.walk.polygonOffsetFactor = -3; M.walk.polygonOffsetUnits = -3;
-  const noShadow = new Set(['ground', 'grass', 'paving', 'cobble', 'asphalt', 'prom', 'glow', 'mark', 'walk']);
+  const noShadow = new Set(['ground', 'grass', 'paving', 'cobble', 'asphalt', 'prom', 'glow', 'mark', 'walk', 'terra', 'dirt']);
   let done = 0; const total = man.meshes.length + 2; const tick = () => { fill.style.width = (100 * ++done / total) + '%'; };
   await Promise.all(man.meshes.map(async (r) => {
     const buf = await (await fetch(r.file)).arrayBuffer(); let o = 0; const g = new THREE.BufferGeometry();
