@@ -206,8 +206,8 @@
   {
    "name": "site_terra",
    "material": "terra",
-   "verts": 35,
-   "tris": 33,
+   "verts": 37,
+   "tris": 35,
    "uv": true,
    "file": "data/site_terra.bin"
   },
@@ -231,6 +231,14 @@
    "verts": 336,
    "tris": 504,
    "file": "data/site_stele.bin"
+  },
+  {
+   "name": "site_grey",
+   "material": "grey",
+   "verts": 9,
+   "tris": 7,
+   "uv": true,
+   "file": "data/site_grey.bin"
   }
  ],
  "tower": [

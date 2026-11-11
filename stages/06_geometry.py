@@ -291,7 +291,7 @@ tm.save("trees"); print("trees", len(spots))
 
 # ================= the tower's surroundings (within 260 m) =================
 RS = 260.0; disc = Point(TX, TY).buffer(RS, 64); land = disc.difference(sea); S = Mesh()
-GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE, MARK, WALK, TERRA, MARBLE, DIRT, STELE = range(18)
+GRASS, PAVE, COBBLE, ASPHALT, CURB, PROM, LAMP, GLOW, CAR, CARGLASS, BARK, PINE, MARK, WALK, TERRA, MARBLE, DIRT, STELE, GREY = range(19)
 def flat(poly, z, mat, col=(1, 1, 1)):
     for pp in (poly.geoms if hasattr(poly, "geoms") else [poly]):
         if pp.geom_type == "Polygon" and pp.area > 0.3:
@@ -315,8 +315,11 @@ walk = drive.buffer(2.6, join_style=1).difference(drive).intersection(land).diff
 grass = unary_union(greens).intersection(land).difference(drive.buffer(2.6)).difference(lawn.buffer(8))
 prom = sea.buffer(21).intersection(land).difference(grass).difference(drive)
 terra = plaza.intersection(land).difference(prom).difference(drive.buffer(2.6)) if not plaza.is_empty else Polygon()
+SP0 = np.array([TX + 47, TY - 27]); SP1 = np.array([TX - 15, TY - 113]); _s = (SP1 - SP0) / np.linalg.norm(SP1 - SP0); _w = np.array([_s[1], -_s[0]])   # the stelae line and the direction of the walk beside it
+strip = Polygon([SP0 - _w * 3, SP1 - _w * 3, SP1 + _w * 34, SP0 + _w * 34]).intersection(land).difference(prom).difference(drive.buffer(2.6)); terra = terra.difference(strip)
 flat(land.difference(bu.buffer(0.2)), 0.02, PAVE)
 flat(terra, 0.03, TERRA)
+flat(strip, 0.035, GREY)
 flat(prom, 0.04, PROM)
 flat(sea.buffer(1.1).intersection(land), 0.05, CURB)                                              # stone coping along the quay
 flat(drive, 0.06, ASPHALT)

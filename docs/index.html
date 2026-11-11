@@ -60,6 +60,7 @@ window._sun = sun; scene.add(sun, sun.target, new THREE.HemisphereLight(0xbcd6ff
 const TL = new THREE.TextureLoader(); const maxAniso = renderer.capabilities.getMaxAnisotropy();
 const tex = (f, rep, srgb = true) => { const t = TL.load(f); t.wrapS = t.wrapT = THREE.RepeatWrapping; if (rep) t.repeat.set(rep, rep); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso; return t; };
 const pbr = (key, rep, color, extra = {}) => new THREE.MeshStandardMaterial({ map: tex(`tex/${key}_diff.jpg`, rep), normalMap: tex(`tex/${key}_nor.jpg`, rep, false), color, roughness: 0.92, ...extra });
+const img = (key, rep) => new THREE.MeshStandardMaterial({ map: tex(`tex/${key}.jpg`, rep), roughness: 0.92 });
 const rgb = (r, g, b) => new THREE.Color().setRGB(r, g, b);
 
 // world position for shaders that need it
@@ -104,10 +105,10 @@ async function main() {
     cap: new THREE.MeshStandardMaterial({ color: 0xa3966f, roughness: 0.95 }), dark: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.7 }),
     pave: new THREE.MeshStandardMaterial({ color: 0x857b6c, roughness: 0.95 }), white: new THREE.MeshStandardMaterial({ color: 0xf2f2f2, side: THREE.DoubleSide }),
     blue: new THREE.MeshStandardMaterial({ color: 0x0b3aa3, side: THREE.DoubleSide }), metal: new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.5 }),
-    grass: fade(pbr('grass', 0.28, rgb(0.75, 1.15, 0.5))), paving: fade(pbr('prom', 0.3, rgb(1.5, 1.36, 1.14))), cobble: fade(pbr('cobble', 0.45, rgb(1, 1, 1))),
-    asphalt: fade(pbr('asphalt', 0.2, rgb(0.75, 0.75, 0.78))), prom: fade(pbr('prom', 0.22, rgb(1.6, 1.55, 1.45))),
+    grass: fade(pbr('grass', 0.28, rgb(0.75, 1.15, 0.5))), paving: fade(img('agg_beige', 0.25)), cobble: fade(pbr('cobble', 0.45, rgb(1, 1, 1))),
+    asphalt: fade(pbr('asphalt', 0.2, rgb(0.75, 0.75, 0.78))), prom: fade(img('agg_beige', 0.25)), grey: fade(img('agg_grey', 0.25)),
     mark: fade(new THREE.MeshStandardMaterial({ color: 0xe9e9e2, roughness: 0.7 })), walk: fade(pbr('prom', 0.5, rgb(1.3, 1.3, 1.27))),
-    terra: fade(pbr('paving', 0.4, rgb(1.25, 1.0, 0.88))), dirt: fade(new THREE.MeshStandardMaterial({ color: 0xb5b0a4, roughness: 1 })), marble: new THREE.MeshStandardMaterial({ color: 0xdcdcd6, roughness: 0.6 }), stele: new THREE.MeshStandardMaterial({ color: 0xb09880, roughness: 0.95 }),
+    terra: fade(img('pav_terra', 0.5)), dirt: fade(new THREE.MeshStandardMaterial({ color: 0xb5b0a4, roughness: 1 })), marble: new THREE.MeshStandardMaterial({ color: 0xdcdcd6, roughness: 0.6 }), stele: new THREE.MeshStandardMaterial({ color: 0xb09880, roughness: 0.95 }),
     kerb: new THREE.MeshStandardMaterial({ color: 0x9d988c, roughness: 0.9 }), lamp: new THREE.MeshStandardMaterial({ color: 0x0c1f18, roughness: 0.5, metalness: 0.5 }),
     glow: new THREE.MeshStandardMaterial({ color: 0xfff3d6, emissive: 0xffe6b0, emissiveIntensity: 0.6 }),
     car: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.45 }), carglass: new THREE.MeshStandardMaterial({ color: 0x06080a, roughness: 0.12 }),
@@ -115,7 +116,7 @@ async function main() {
   };
   for (const k of ['stone', 'brick', 'cap', 'dark', 'pave', 'metal', 'wall', 'roof', 'glass', 'quay', 'kerb', 'lamp', 'car', 'carglass']) M[k].side = THREE.DoubleSide;   // some faces wind inward
   M.mark.polygonOffsetFactor = -6; M.mark.polygonOffsetUnits = -6; M.walk.polygonOffsetFactor = -3; M.walk.polygonOffsetUnits = -3;
-  const noShadow = new Set(['ground', 'grass', 'paving', 'cobble', 'asphalt', 'prom', 'glow', 'mark', 'walk', 'terra', 'dirt']);
+  const noShadow = new Set(['ground', 'grass', 'paving', 'cobble', 'asphalt', 'prom', 'glow', 'mark', 'walk', 'terra', 'dirt', 'grey']);
   let done = 0; const total = man.meshes.length + 2; const tick = () => { fill.style.width = (100 * ++done / total) + '%'; };
   await Promise.all(man.meshes.map(async (r) => {
     const buf = await (await fetch(r.file)).arrayBuffer(); let o = 0; const g = new THREE.BufferGeometry();
