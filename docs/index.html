@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Λευκός Πύργος 3D</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #9db7d1; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  canvas { display: block; }
+  #bar { position: fixed; left: 12px; right: 12px; bottom: 34px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+  #bar button { border: 0; border-radius: 999px; padding: 9px 14px; font-size: 14px; color: #14212b; background: rgba(255,255,255,.86); cursor: pointer; backdrop-filter: blur(6px); }
+  #bar button:hover, #bar button.on { background: #fff; box-shadow: 0 0 0 2px #1c5f8a inset; }
+  #load { position: fixed; inset: 0; display: grid; place-items: center; background: #dfe9f2; color: #14212b; text-align: center; transition: opacity .6s; }
+  #load b { display: block; font-size: 22px; margin-bottom: 10px; }
+  #track { width: 240px; height: 6px; background: #b9c9d8; border-radius: 3px; overflow: hidden; margin: 0 auto; }
+  #fill { width: 0; height: 100%; background: #1c5f8a; }
+  #credit { position: fixed; left: 0; right: 0; bottom: 8px; text-align: center; font-size: 11px; color: rgba(255,255,255,.9); text-shadow: 0 1px 2px rgba(0,0,0,.6); pointer-events: none; }
+  #help { position: fixed; top: 10px; left: 0; right: 0; text-align: center; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); pointer-events: none; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="load"><div><b>Λευκός Πύργος, Θεσσαλονίκη</b><div id="track"><div id="fill"></div></div><p id="msg">Φόρτωση…</p></div></div>
+<div id="help">Σύρε για περιστροφή · ροδέλα για ζουμ · δεξί κλικ για μετακίνηση</div>
+<div id="bar"></div>
+<div id="credit">© OpenStreetMap contributors · Imagery: Esri World Imagery · Textures: Poly Haven (CC0)</div>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Sky } from 'three/addons/objects/Sky.js';
+
+const msg = document.getElementById('msg'), fill = document.getElementById('fill');
+const fail = (e) => { msg.textContent = 'Δεν φόρτωσε: ' + (e.message || e); console.error(e); };
+window.addEventListener('error', (e) => fail(e.error || e.message));
+window.addEventListener('unhandledrejection', (e) => fail(e.reason));
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.44;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0xbfd0e0, 0.00011);
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 1, 60000);
+const B = (x, y, z) => new THREE.Vector3(x, z, -y);            // Blender (z up) to three (y up)
+
+// ---------- sky, sun, light ----------
+const EL = THREE.MathUtils.degToRad(46), AZ = THREE.MathUtils.degToRad(225);
+const sunDir = B(Math.sin(AZ) * Math.cos(EL), Math.cos(AZ) * Math.cos(EL), Math.sin(EL)).normalize();
+const sky = new Sky(); sky.scale.setScalar(450000); scene.add(sky);
+Object.assign(sky.material.uniforms.turbidity, { value: 3.2 }); sky.material.uniforms.rayleigh.value = 1.1;
+sky.material.uniforms.mieCoefficient.value = 0.004; sky.material.uniforms.mieDirectionalG.value = 0.8; sky.material.uniforms.sunPosition.value.copy(sunDir);
+{ const pm = new THREE.PMREMGenerator(renderer); const s2 = new THREE.Scene(); const sk2 = sky.clone(); s2.add(sk2); scene.environment = pm.fromScene(s2).texture; scene.environmentIntensity = 0.5; }
+const sun = new THREE.DirectionalLight(0xfff1dc, 2.5); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -520, right: 520, top: 520, bottom: -520, near: 10, far: 3000 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.6; sun.shadow.camera.updateProjectionMatrix();
+scene.add(sun, sun.target, new THREE.HemisphereLight(0xcfe2ff, 0x8d8474, 0.7));
+
+// ---------- textures ----------
+const TL = new THREE.TextureLoader(); const maxAniso = renderer.capabilities.getMaxAnisotropy();
+const tex = (f, rep, srgb = true) => { const t = TL.load(f); t.wrapS = t.wrapT = THREE.RepeatWrapping; if (rep) t.repeat.set(rep, rep); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso; return t; };
+const pbr = (key, rep, color, extra = {}) => new THREE.MeshStandardMaterial({ map: tex(`tex/${key}_diff.jpg`, rep), normalMap: tex(`tex/${key}_nor.jpg`, rep, false), color, roughness: 0.92, ...extra });
+const rgb = (r, g, b) => new THREE.Color().setRGB(r, g, b);
+
+// world position for shaders that need it
+const withWorld = (mat, fragHead, fragBody, uniforms = {}) => { mat.onBeforeCompile = (sh) => {
+  Object.assign(sh.uniforms, uniforms);
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec2 vWUv;')
+    .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vWUv = uv;');
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP; varying vec2 vWUv;\n' + fragHead)
+    .replace('#include <color_fragment>', '#include <color_fragment>\n' + fragBody); }; return mat; };
+
+async function main() {
+  const man = await (await fetch('data/manifest.json')).json(); const TW = new THREE.Vector3(...man.tower);
+  sun.target.position.copy(TW); sun.position.copy(TW).addScaledVector(sunDir, 1500);
+
+  // ground: three satellite layers chosen by position
+  const S = man.sat, ext = (k) => new THREE.Vector4(...S[k].extent), st = (k) => { const t = tex(S[k].file); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; };
+  const ground = withWorld(new THREE.MeshStandardMaterial({ roughness: 1 }),
+    'uniform sampler2D tNear, tCity, tFar; uniform vec4 eNear, eCity, eFar;\nvec3 lay(sampler2D t, vec4 e, vec2 p, inout float m) { vec2 u = (p - e.xy) / (e.zw - e.xy); m = step(0.004, u.x) * step(u.x, 0.996) * step(0.004, u.y) * step(u.y, 0.996); return texture2D(t, clamp(u, 0.0, 1.0)).rgb; }',
+    'vec2 bp = vec2(vWP.x, -vWP.z); float m; vec3 gc = lay(tFar, eFar, bp, m); vec3 c2 = lay(tCity, eCity, bp, m); gc = mix(gc, c2, m); c2 = lay(tNear, eNear, bp, m); gc = mix(gc, c2, m); diffuseColor.rgb = gc;',
+    { tNear: { value: st('near') }, tCity: { value: st('city') }, tFar: { value: st('far') }, eNear: { value: ext('near') }, eCity: { value: ext('city') }, eFar: { value: ext('far') } });
+
+  // apartment walls: windows, balcony doors and shops drawn from the wall coordinates (metres along the wall, metres up)
+  const wall = withWorld(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }),
+    'float band(float x, float a, float b) { return step(a, x) * step(x, b); }\nfloat hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+    `{ float u = vWUv.x, v = vWUv.y, vf = v - 3.6; float fu = fract(u / 3.4), fv = fract(vf / 3.1); float up = step(0.0, vf);
+       float win = up * band(fu, 0.16, 0.84) * band(fv, 0.24, 0.84); float shop = band(v, 0.5, 3.0) * band(fract(u / 4.2), 0.1, 0.9);
+       float r = hash(floor(vec2(u / 3.4, vf / 3.1))); vec3 glass = mix(vec3(0.03, 0.04, 0.055), vec3(0.14, 0.15, 0.16), r); if (r > 0.78) glass = vec3(0.42, 0.39, 0.33);
+       diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 0.6, up * step(fv, 0.07));
+       diffuseColor.rgb = mix(diffuseColor.rgb, glass, win); diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.04, 0.05, 0.06), shop); }`);
+
+  // surfaces around the tower fade into the satellite photo at the edge of the site
+  const fade = (mat) => { mat.transparent = true; mat.polygonOffset = true; mat.polygonOffsetFactor = -2; mat.polygonOffsetUnits = -2;
+    return withWorld(mat, 'uniform vec2 uTower;', 'diffuseColor.a *= 1.0 - smoothstep(205.0, 255.0, distance(vWP.xz, uTower));', { uTower: { value: new THREE.Vector2(TW.x, TW.z) } }); };
+
+  const M = {
+    ground, wall,
+    quay: new THREE.MeshStandardMaterial({ color: 0x77746d, roughness: 0.9 }),
+    roof: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 }),
+    plain: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }),
+    glass: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.08, metalness: 0.2 }),
+    stone: pbr('stone', 0.36, rgb(1.22, 1.2, 1.15)), brick: pbr('brick', 0.5, rgb(1.4, 1.05, 0.85)),
+    cap: new THREE.MeshStandardMaterial({ color: 0xa3966f, roughness: 0.95 }), dark: new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.7 }),
+    pave: new THREE.MeshStandardMaterial({ color: 0x857b6c, roughness: 0.95 }), white: new THREE.MeshStandardMaterial({ color: 0xf2f2f2, side: THREE.DoubleSide }),
+    blue: new THREE.MeshStandardMaterial({ color: 0x0b3aa3, side: THREE.DoubleSide }), metal: new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.5 }),
+    grass: fade(pbr('grass', 0.28, rgb(0.75, 1.15, 0.5))), paving: fade(pbr('prom', 0.3, rgb(1.12, 0.98, 0.8))), cobble: fade(pbr('cobble', 0.45, rgb(1, 1, 1))),
+    asphalt: fade(pbr('asphalt', 0.2, rgb(0.75, 0.75, 0.78))), prom: fade(pbr('prom', 0.22, rgb(1.15, 1.08, 0.98))),
+    kerb: new THREE.MeshStandardMaterial({ color: 0x9d988c, roughness: 0.9 }), lamp: new THREE.MeshStandardMaterial({ color: 0x0c1f18, roughness: 0.5, metalness: 0.5 }),
+    glow: new THREE.MeshStandardMaterial({ color: 0xfff3d6, emissive: 0xffe6b0, emissiveIntensity: 0.6 }),
+    car: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.45 }), carglass: new THREE.MeshStandardMaterial({ color: 0x06080a, roughness: 0.12 }),
+    bark: new THREE.MeshStandardMaterial({ color: 0x4a3526, roughness: 0.95, side: THREE.DoubleSide }),
+  };
+  for (const k of ['stone', 'brick', 'cap', 'dark', 'pave', 'metal', 'wall', 'roof', 'glass', 'quay', 'kerb', 'lamp', 'car', 'carglass']) M[k].side = THREE.DoubleSide;   // some faces wind inward
+  const noShadow = new Set(['ground', 'grass', 'paving', 'cobble', 'asphalt', 'prom', 'glow']);
+  let done = 0; const total = man.meshes.length + 2; const tick = () => { fill.style.width = (100 * ++done / total) + '%'; };
+  await Promise.all(man.meshes.map(async (r) => {
+    const buf = await (await fetch(r.file)).arrayBuffer(); let o = 0; const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(buf, o, r.verts * 3), 3)); o += r.verts * 12;
+    if (r.uv) { g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(buf, o, r.verts * 2), 2)); o += r.verts * 8; }
+    if (r.color) { g.setAttribute('color', new THREE.BufferAttribute(new Uint8Array(buf, o, r.verts * 4), 4, true)); o += r.verts * 4; }
+    g.setIndex(new THREE.BufferAttribute(new Uint32Array(buf, o, r.tris * 3), 1)); g.computeVertexNormals();
+    const mesh = new THREE.Mesh(g, M[r.material] || M.plain); mesh.receiveShadow = true; mesh.castShadow = !noShadow.has(r.material);
+    if (M[r.material] && M[r.material].transparent) mesh.renderOrder = 1; scene.add(mesh); tick();
+  }));
+
+  // ---------- sea ----------
+  { const n = 256, d = new Uint8Array(n * n * 4), h = (x, y) => { let s = 0; for (let k = 1; k <= 5; k++) s += Math.sin((x * k * 1.7 + y * k * 0.9) * 6.2832 / n * (k % 2 ? 1 : 2) + k * 1.3) / k + Math.cos((y * k * 2.3 - x * k * 0.6) * 6.2832 / n + k) / k; return s; };
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const dx = h(x + 1, y) - h(x - 1, y), dy = h(x, y + 1) - h(x, y - 1), i = (y * n + x) * 4; d[i] = 128 + dx * 60; d[i + 1] = 128 + dy * 60; d[i + 2] = 255; d[i + 3] = 255; }
+    const nm = new THREE.DataTexture(d, n, n); nm.wrapS = nm.wrapT = THREE.RepeatWrapping; nm.repeat.set(2600, 2600); nm.needsUpdate = true; nm.generateMipmaps = true; nm.minFilter = THREE.LinearMipmapLinearFilter; nm.magFilter = THREE.LinearFilter;
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshStandardMaterial({ color: 0x0c4f6e, roughness: 0.14, metalness: 0.05, normalMap: nm, normalScale: new THREE.Vector2(0.12, 0.12) }));
+    sea.rotation.x = -Math.PI / 2; sea.position.y = 0.6; sea.receiveShadow = true; sea.frustumCulled = false; scene.add(sea); window._sea = nm; window._scene = scene; }
+
+  // ---------- trees ----------
+  let seed = 7; const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(6.2832 * rnd());
+  const lumpy = (detail) => { const g = new THREE.IcosahedronGeometry(1, detail), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(p, i); const k = 0.82 + 0.36 * Math.abs(Math.sin(v.x * 12.9898 + v.y * 78.233 + v.z * 37.719) * 43758.5453 % 1); p.setXYZ(i, v.x * k, v.y * k, v.z * k); } g.computeVertexNormals(); return g; };
+  const leafMat = new THREE.MeshStandardMaterial({ roughness: 0.85 });
+  { const t = new Float32Array(await (await fetch(man.trees.file)).arrayBuffer()), n = man.trees.count, near = [], far = [];
+    for (let i = 0; i < n; i++) (Math.hypot(t[i * 8] - TW.x, t[i * 8 + 1] + TW.z) < 750 ? near : far).push(i);
+    const put = (list, detail, blobs, shadow) => { const im = new THREE.InstancedMesh(lumpy(detail), leafMat, list.length * blobs), m = new THREE.Matrix4(), q = new THREE.Quaternion(), c = new THREE.Color(); let k = 0;
+      for (const i of list) { const x = t[i * 8], y = t[i * 8 + 1], z = t[i * 8 + 2], h = t[i * 8 + 3], r = t[i * 8 + 4];
+        for (let b = 0; b < blobs; b++) { const s = b ? 0.6 + 0.25 * rnd() : 1, off = b ? 0.55 * r : 0; q.setFromEuler(new THREE.Euler(0, rnd() * 6.28, 0));
+          m.compose(B(x + (rnd() * 2 - 1) * off, y + (rnd() * 2 - 1) * off, z + h * (b ? 0.5 + 0.25 * rnd() : 0.68)), q, new THREE.Vector3(r * s, h * 0.34 * s, r * s)); im.setMatrixAt(k, m);
+          const v = 0.8 + 0.4 * rnd(); c.setRGB(t[i * 8 + 5] * v, t[i * 8 + 6] * v, t[i * 8 + 7] * v, THREE.SRGBColorSpace).convertSRGBToLinear(); c.setRGB(Math.pow(t[i * 8 + 5] * v, 1) , Math.pow(t[i * 8 + 6] * v, 1), Math.pow(t[i * 8 + 7] * v, 1)); im.setColorAt(k++, c); } }
+      im.castShadow = shadow; im.receiveShadow = true; im.frustumCulled = false; scene.add(im); };
+    put(near, 1, 3, true); put(far, 0, 2, false);
+    const tr = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.14, 0.2, 1, 5), M.bark, near.length), m = new THREE.Matrix4(); let k = 0;
+    for (const i of near) { const h = t[i * 8 + 3] * 0.5; m.compose(B(t[i * 8], t[i * 8 + 1], t[i * 8 + 2] + h / 2), new THREE.Quaternion(), new THREE.Vector3(1, h, 1)); tr.setMatrixAt(k++, m); } tr.castShadow = true; tr.frustumCulled = false; scene.add(tr); tick(); }
+
+  // stone pines: a dark core plus a cloud of small leaf triangles per clump
+  { const c = new Float32Array(await (await fetch(man.clumps.file)).arrayBuffer()), n = man.clumps.count, L = 420, pos = new Float32Array(n * L * 9), col = new Float32Array(n * L * 9);
+    const core = new THREE.InstancedMesh(lumpy(1), leafMat, n), m = new THREE.Matrix4(), cc = new THREE.Color(); let o = 0;
+    for (let i = 0; i < n; i++) { const x = c[i * 8], y = c[i * 8 + 1], z = c[i * 8 + 2], rx = c[i * 8 + 3], rz = c[i * 8 + 4], g = [c[i * 8 + 5], c[i * 8 + 6], c[i * 8 + 7]];
+      m.compose(B(x, y, z), new THREE.Quaternion(), new THREE.Vector3(rx * 0.86, rz * 0.86, rx * 0.86)); core.setMatrixAt(i, m); cc.setRGB(g[0] * 0.5, g[1] * 0.5, g[2] * 0.5); core.setColorAt(i, cc);
+      for (let l = 0; l < L; l++) { let ux = gauss(), uy = gauss(), uz = gauss(); const ul = Math.hypot(ux, uy, uz); ux /= ul; uy /= ul; uz /= ul; const rho = 0.72 + 0.36 * rnd(), sz = 0.34;
+        const cx = x + ux * rho * rx, cy = y + uy * rho * rx, cz = z + uz * rho * rz, a = [gauss() * sz, gauss() * sz, gauss() * sz], b = [gauss() * sz, gauss() * sz, gauss() * sz], v = 0.6 + 0.85 * rnd();
+        const P = [[cx - a[0] * .5, cy - a[1] * .5, cz - a[2] * .5], [cx + a[0] * .5 + b[0] * .25, cy + a[1] * .5 + b[1] * .25, cz + a[2] * .5 + b[2] * .25], [cx + b[0] * .9 + ux * sz * .4, cy + b[1] * .9 + uy * sz * .4, cz + b[2] * .9 + uz * sz * .4]];
+        for (const p of P) { pos[o] = p[0]; pos[o + 1] = p[2]; pos[o + 2] = -p[1]; col[o] = g[0] * v; col[o + 1] = g[1] * v; col[o + 2] = g[2] * v; o += 3; } } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
+    const leaves = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.8, side: THREE.DoubleSide })); leaves.castShadow = true; leaves.receiveShadow = true; core.castShadow = true; core.frustumCulled = false; scene.add(leaves, core); tick(); }
+
+  // ---------- camera, views ----------
+  const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.maxPolarAngle = Math.PI * 0.492; controls.minDistance = 18; controls.maxDistance = 3200; controls.autoRotateSpeed = 0.7;
+  const V = (p, t) => ({ pos: B(p[0], p[1], p[2]).add(TW), tgt: B(t[0], t[1], t[2]).add(TW) });
+  const views = { 'Από τη θάλασσα': V([-185, -75, 82], [8, 12, 6]), 'Drone': V([95, -150, 62], [-12, 25, 10]), 'Πλατεία': V([-50, -34, 1.7], [0, 0, 15]), 'Στέψη': V([-30, -18, 37], [0, 0, 27]), 'Λεωφόρος Νίκης': V([-150, 20, 45], [-40, 150, 12]), 'Πόλη': V([-900, -1000, 650], [100, 150, 0]) };
+  let fly = null; const go = (v, ms = 1800) => { fly = { p0: camera.position.clone(), t0: controls.target.clone(), v, s: performance.now(), ms }; };
+  const bar = document.getElementById('bar');
+  for (const [name, v] of Object.entries(views)) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => go(v); bar.appendChild(b); }
+  const rot = document.createElement('button'); rot.textContent = 'Αυτόματη περιστροφή'; rot.onclick = () => { controls.autoRotate = !controls.autoRotate; rot.classList.toggle('on', controls.autoRotate); }; bar.appendChild(rot);
+  const q = new URLSearchParams(location.search).get('view'); const first = views[q] || views['Από τη θάλασσα']; camera.position.copy(first.pos); controls.target.copy(first.tgt);
+  addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+  const el = document.getElementById('load'); el.style.opacity = 0; setTimeout(() => el.remove(), 700); setTimeout(() => document.getElementById('help').remove(), 9000);
+  renderer.setAnimationLoop((now) => {
+    if (fly) { let k = Math.min(1, (now - fly.s) / fly.ms); k = k * k * (3 - 2 * k); camera.position.lerpVectors(fly.p0, fly.v.pos, k); controls.target.lerpVectors(fly.t0, fly.v.tgt, k); if (k >= 1) fly = null; }
+    window._sea.offset.set(now * 0.00002, now * 0.000012); controls.update(); renderer.render(scene, camera); window._frames = (window._frames || 0) + 1; });
+}
+main().catch(fail);
+</script>
+</body>
+</html>

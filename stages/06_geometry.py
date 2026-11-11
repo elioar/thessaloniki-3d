@@ -272,12 +272,14 @@ def blob(cx, cy, cz, rx, rz, rnd, seg=7, rings=4):
         for s in range(seg): t += [(o + s, o + (s + 1) % seg, o + seg + (s + 1) % seg), (o + s, o + seg + (s + 1) % seg, o + seg + s)]
     return v, t
 near_spots = [p for p in spots if math.hypot(p[0] - TX, p[1] - TY) < 190]; spots = [p for p in spots if math.hypot(p[0] - TX, p[1] - TY) >= 190]
+WEB_TREES = []; WEB_CLUMPS = []
 tm = Mesh()
 for (x, y) in spots:
     z = land_h(x, y); hgt = rnd.uniform(6, 11); r = hgt * rnd.uniform(0.26, 0.34)
     gcol = (rnd.uniform(0.07, 0.13), rnd.uniform(0.15, 0.24), rnd.uniform(0.04, 0.08))
     tr = [(x + 0.18 * math.cos(k * 2.094), y + 0.18 * math.sin(k * 2.094), zz) for zz in (z, z + hgt * 0.45) for k in range(3)]
     tm.add(tr, [(0, 1, 4), (0, 4, 3), (1, 2, 5), (1, 5, 4), (2, 0, 3), (2, 3, 5)], col=(0.16, 0.11, 0.07), mat=0)
+    WEB_TREES.append([round(x, 2), round(y, 2), round(z, 2), round(hgt, 2), round(r, 2)] + [round(c, 3) for c in gcol])
     close = math.hypot(x - TX, y - TY) < 520; sg, rg = (10, 6) if close else (6, 4)
     for k in range(4 if close else 2):
         off = 0 if k == 0 else 0.55; kk = 1 if k == 0 else rnd.uniform(0.55, 0.8); gc = tuple(c * rnd.uniform(0.85, 1.15) for c in gcol)
@@ -374,6 +376,9 @@ for (x, y) in pines:
         rzz = rx * prnd.uniform(0.42, 0.58); gk = tuple(c * prnd.uniform(0.8, 1.25) for c in g)
         vv, tt = blob(bx, by, bz, rx * 0.86, rzz * 0.86, prnd, 12, 7); S.add(vv, tt, col=tuple(c * 0.45 for c in gk), mat=PINE)
         foliage(S, bx, by, bz + rzz * 0.15, rx, rzz, 1100, 0.26, gk, prnd, PINE)
+        WEB_CLUMPS.append([round(bx, 2), round(by, 2), round(bz + rzz * 0.15, 2), round(rx, 2), round(rzz, 2)] + [round(c, 3) for c in gk])
         a0 = np.array([tx_, ty_, tz_ - 0.8]); b0 = np.array([bx, by, bz - rzz * 0.4]); sd = np.cross(b0 - a0, (0, 0, 1.0)); sd = sd / (np.linalg.norm(sd) + 1e-6) * 0.09
         S.add([a0 - sd, a0 + sd, b0 + sd * 0.5, b0 - sd * 0.5, a0 + (0, 0, 0.16), b0 + (0, 0, 0.1)], [(0, 1, 2), (0, 2, 3), (0, 3, 5), (0, 5, 4), (1, 4, 5), (1, 5, 2)], col=(1, 1, 1), mat=BARK)
 S.save("site"); print("site: panels", panels, "lamps", nl, "cars", ncar, "pines", len(pines), "lawn m2", round(lawn.area))
+
+json.dump({"trees": WEB_TREES, "clumps": WEB_CLUMPS, "tower": [TX, TY, FLAT], "bounds": [x0, y0, x1, y1]}, open(f"{root}/data/web_trees.json", "w"))
