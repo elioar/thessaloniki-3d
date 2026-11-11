@@ -1,0 +1,13 @@
+# downloaded or generated: rebuilt by the Makefile
+data/
+tools/
+out/*.blend
+out/*.blend1
+out/*.exr
+out/*.npy
+out/*_raw.png
+out/dbg_*.png
+out/sg_*
+out/t_*
+out/*_clay.png
+__pycache__/

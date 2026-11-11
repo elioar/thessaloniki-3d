@@ -1,0 +1,6 @@
+{
+  "name": "thessaloniki",
+  "anchor": {"lat": 40.62637, "lon": 22.94840, "label": "White Tower"},
+  "bbox": {"west": 22.930, "south": 40.613, "east": 22.966, "north": 40.640},
+  "inner_radius_m": 450
+}
