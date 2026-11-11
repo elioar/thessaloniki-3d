@@ -1,252 +1,327 @@
 {
  "meshes": [
   {
-   "name": "ground_ground",
+   "name": "ground_ground_0",
    "material": "ground",
    "verts": 163691,
    "tris": 81923,
-   "file": "data/ground_ground.bin"
+   "file": "data/ground_ground_0.bin"
   },
   {
-   "name": "quay_quay",
+   "name": "quay_quay_0",
    "material": "quay",
    "verts": 312,
    "tris": 156,
-   "file": "data/quay_quay.bin"
+   "file": "data/quay_quay_0.bin"
   },
   {
-   "name": "bld_wall",
+   "name": "bld_wall_0",
    "material": "wall",
-   "verts": 168404,
-   "tris": 84202,
+   "verts": 170520,
+   "tris": 85260,
    "uv": true,
    "color": true,
-   "file": "data/bld_wall.bin"
+   "file": "data/bld_wall_0.bin"
   },
   {
-   "name": "bld_roof",
+   "name": "bld_roof_1",
    "material": "roof",
-   "verts": 45379,
-   "tris": 30271,
+   "verts": 46007,
+   "tris": 30711,
    "color": true,
-   "file": "data/bld_roof.bin"
+   "file": "data/bld_roof_1.bin"
   },
   {
-   "name": "bld_plain",
+   "name": "bld_plain_2",
    "material": "plain",
-   "verts": 334751,
-   "tris": 444443,
+   "verts": 764825,
+   "tris": 957179,
    "color": true,
-   "file": "data/bld_plain.bin"
+   "file": "data/bld_plain_2.bin"
   },
   {
-   "name": "bld_glass",
+   "name": "bld_glass_3",
    "material": "glass",
-   "verts": 9720,
-   "tris": 14580,
+   "verts": 30033,
+   "tris": 33707,
    "color": true,
-   "file": "data/bld_glass.bin"
+   "file": "data/bld_glass_3.bin"
   },
   {
-   "name": "tower_stone",
+   "name": "tower_stone_0",
    "material": "stone",
    "verts": 36170,
    "tris": 18976,
    "uv": true,
-   "file": "data/tower_stone.bin"
+   "file": "data/tower_stone_0.bin"
   },
   {
-   "name": "tower_dark",
+   "name": "tower_dark_1",
    "material": "dark",
    "verts": 378,
    "tris": 288,
-   "file": "data/tower_dark.bin"
+   "file": "data/tower_dark_1.bin"
   },
   {
-   "name": "tower_pave",
+   "name": "tower_pave_2",
    "material": "pave",
    "verts": 3048,
    "tris": 1524,
-   "file": "data/tower_pave.bin"
+   "file": "data/tower_pave_2.bin"
   },
   {
-   "name": "tower_white",
+   "name": "tower_white_3",
    "material": "white",
    "verts": 364,
    "tris": 182,
-   "file": "data/tower_white.bin"
+   "file": "data/tower_white_3.bin"
   },
   {
-   "name": "tower_blue",
+   "name": "tower_blue_4",
    "material": "blue",
    "verts": 448,
    "tris": 224,
-   "file": "data/tower_blue.bin"
+   "file": "data/tower_blue_4.bin"
   },
   {
-   "name": "tower_metal",
+   "name": "tower_metal_5",
    "material": "metal",
    "verts": 80,
    "tris": 68,
-   "file": "data/tower_metal.bin"
+   "file": "data/tower_metal_5.bin"
   },
   {
-   "name": "tower_brick",
+   "name": "tower_brick_6",
    "material": "brick",
    "verts": 7328,
    "tris": 3664,
    "uv": true,
-   "file": "data/tower_brick.bin"
+   "file": "data/tower_brick_6.bin"
   },
   {
-   "name": "tower_cap",
+   "name": "tower_cap_7",
    "material": "cap",
    "verts": 14996,
    "tris": 7498,
-   "file": "data/tower_cap.bin"
+   "file": "data/tower_cap_7.bin"
   },
   {
-   "name": "site_grass",
+   "name": "site_grass_0",
    "material": "grass",
    "verts": 590,
    "tris": 544,
    "uv": true,
-   "file": "data/site_grass.bin"
+   "file": "data/site_grass_0.bin"
   },
   {
-   "name": "site_paving",
+   "name": "site_paving_1",
    "material": "paving",
    "verts": 3434,
    "tris": 3480,
    "uv": true,
-   "file": "data/site_paving.bin"
+   "file": "data/site_paving_1.bin"
   },
   {
-   "name": "site_cobble",
+   "name": "site_cobble_2",
    "material": "cobble",
    "verts": 1150,
    "tris": 670,
    "uv": true,
-   "file": "data/site_cobble.bin"
+   "file": "data/site_cobble_2.bin"
   },
   {
-   "name": "site_asphalt",
+   "name": "site_asphalt_3",
    "material": "asphalt",
    "verts": 685,
    "tris": 697,
    "uv": true,
-   "file": "data/site_asphalt.bin"
+   "file": "data/site_asphalt_3.bin"
   },
   {
-   "name": "site_kerb",
+   "name": "site_kerb_4",
    "material": "kerb",
    "verts": 10276,
    "tris": 5694,
-   "file": "data/site_kerb.bin"
+   "file": "data/site_kerb_4.bin"
   },
   {
-   "name": "site_prom",
+   "name": "site_prom_5",
    "material": "prom",
    "verts": 84,
    "tris": 74,
    "uv": true,
-   "file": "data/site_prom.bin"
+   "file": "data/site_prom_5.bin"
   },
   {
-   "name": "site_lamp",
+   "name": "site_lamp_6",
    "material": "lamp",
    "verts": 1056,
    "tris": 1584,
-   "file": "data/site_lamp.bin"
+   "file": "data/site_lamp_6.bin"
   },
   {
-   "name": "site_glow",
+   "name": "site_glow_7",
    "material": "glow",
    "verts": 480,
    "tris": 720,
-   "file": "data/site_glow.bin"
+   "file": "data/site_glow_7.bin"
   },
   {
-   "name": "site_car",
+   "name": "site_car_8",
    "material": "car",
    "verts": 267768,
    "tris": 446280,
    "color": true,
-   "file": "data/site_car.bin"
+   "file": "data/site_car_8.bin"
   },
   {
-   "name": "site_carglass",
+   "name": "site_carglass_9",
    "material": "carglass",
    "verts": 103288,
    "tris": 154932,
-   "file": "data/site_carglass.bin"
+   "file": "data/site_carglass_9.bin"
   },
   {
-   "name": "site_bark",
+   "name": "site_bark_10",
    "material": "bark",
    "verts": 21564,
    "tris": 27918,
-   "file": "data/site_bark.bin"
+   "file": "data/site_bark_10.bin"
   },
   {
-   "name": "site_mark",
+   "name": "site_mark_12",
    "material": "mark",
    "verts": 8044,
    "tris": 5702,
-   "file": "data/site_mark.bin"
+   "file": "data/site_mark_12.bin"
   },
   {
-   "name": "site_walk",
+   "name": "site_walk_13",
    "material": "walk",
    "verts": 2182,
    "tris": 2136,
    "uv": true,
-   "file": "data/site_walk.bin"
+   "file": "data/site_walk_13.bin"
   },
   {
-   "name": "site_terra",
+   "name": "site_terra_14",
    "material": "terra",
    "verts": 37,
    "tris": 35,
    "uv": true,
-   "file": "data/site_terra.bin"
+   "file": "data/site_terra_14.bin"
   },
   {
-   "name": "site_marble",
+   "name": "site_marble_15",
    "material": "marble",
    "verts": 1497,
    "tris": 963,
-   "file": "data/site_marble.bin"
+   "file": "data/site_marble_15.bin"
   },
   {
-   "name": "site_dirt",
+   "name": "site_dirt_16",
    "material": "dirt",
    "verts": 413,
    "tris": 407,
-   "file": "data/site_dirt.bin"
+   "file": "data/site_dirt_16.bin"
   },
   {
-   "name": "site_stele",
+   "name": "site_stele_17",
    "material": "stele",
    "verts": 336,
    "tris": 504,
-   "file": "data/site_stele.bin"
+   "file": "data/site_stele_17.bin"
   },
   {
-   "name": "site_grey",
+   "name": "site_grey_18",
    "material": "grey",
    "verts": 9,
    "tris": 7,
    "uv": true,
-   "file": "data/site_grey.bin"
+   "file": "data/site_grey_18.bin"
   },
   {
-   "name": "site_matte",
+   "name": "site_matte_19",
    "material": "matte",
    "verts": 16766,
    "tris": 26192,
    "color": true,
-   "file": "data/site_matte.bin"
+   "file": "data/site_matte_19.bin"
+  },
+  {
+   "name": "aris_apave_0",
+   "material": "apave",
+   "verts": 446,
+   "tris": 482,
+   "uv": true,
+   "file": "data/aris_apave_0.bin"
+  },
+  {
+   "name": "aris_aband_1",
+   "material": "aband",
+   "verts": 154,
+   "tris": 84,
+   "file": "data/aris_aband_1.bin"
+  },
+  {
+   "name": "aris_agrass_2",
+   "material": "agrass",
+   "verts": 89,
+   "tris": 47,
+   "uv": true,
+   "file": "data/aris_agrass_2.bin"
+  },
+  {
+   "name": "aris_marble_3",
+   "material": "marble",
+   "verts": 558,
+   "tris": 392,
+   "file": "data/aris_marble_3.bin"
+  },
+  {
+   "name": "aris_matte_4",
+   "material": "matte",
+   "verts": 42499,
+   "tris": 67722,
+   "color": true,
+   "file": "data/aris_matte_4.bin"
+  },
+  {
+   "name": "aris_matte_5",
+   "material": "matte",
+   "verts": 126790,
+   "tris": 51460,
+   "color": true,
+   "file": "data/aris_matte_5.bin"
+  },
+  {
+   "name": "aris_bark_6",
+   "material": "bark",
+   "verts": 248,
+   "tris": 372,
+   "file": "data/aris_bark_6.bin"
+  },
+  {
+   "name": "aris_lamp_7",
+   "material": "lamp",
+   "verts": 320,
+   "tris": 480,
+   "file": "data/aris_lamp_7.bin"
+  },
+  {
+   "name": "aris_glow_8",
+   "material": "glow",
+   "verts": 128,
+   "tris": 192,
+   "file": "data/aris_glow_8.bin"
+  },
+  {
+   "name": "aris_aasph_9",
+   "material": "aasph",
+   "verts": 88,
+   "tris": 76,
+   "uv": true,
+   "file": "data/aris_aasph_9.bin"
   }
  ],
  "tower": [
@@ -290,6 +365,15 @@
     -27422.62119358526,
     28947.026975065954,
     28266.780051183425
+   ]
+  },
+  "aris": {
+   "file": "tex/sat_aris.jpg",
+   "extent": [
+    -871.9337421970754,
+    358.2097921576761,
+    -349.81186193371497,
+    996.3006202460092
    ]
   }
  }

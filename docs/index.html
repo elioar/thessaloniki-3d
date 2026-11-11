@@ -78,9 +78,9 @@ async function main() {
   // ground: three satellite layers chosen by position
   const S = man.sat, ext = (k) => new THREE.Vector4(...S[k].extent), st = (k) => { const t = tex(S[k].file); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping; return t; };
   const ground = withWorld(new THREE.MeshStandardMaterial({ roughness: 1 }),
-    'uniform sampler2D tNear, tCity, tFar; uniform vec4 eNear, eCity, eFar;\nvec3 lay(sampler2D t, vec4 e, vec2 p, inout float m) { vec2 u = (p - e.xy) / (e.zw - e.xy); m = step(0.004, u.x) * step(u.x, 0.996) * step(0.004, u.y) * step(u.y, 0.996); return texture2D(t, clamp(u, 0.0, 1.0)).rgb; }',
-    'vec2 bp = vec2(vWP.x, -vWP.z); float m; vec3 gc = lay(tFar, eFar, bp, m); vec3 c2 = lay(tCity, eCity, bp, m); gc = mix(gc, c2, m); c2 = lay(tNear, eNear, bp, m); gc = mix(gc, c2, m); diffuseColor.rgb = gc;',
-    { tNear: { value: st('near') }, tCity: { value: st('city') }, tFar: { value: st('far') }, eNear: { value: ext('near') }, eCity: { value: ext('city') }, eFar: { value: ext('far') } });
+    'uniform sampler2D tNear, tCity, tFar, tAris; uniform vec4 eNear, eCity, eFar, eAris;\nvec3 lay(sampler2D t, vec4 e, vec2 p, inout float m) { vec2 u = (p - e.xy) / (e.zw - e.xy); m = step(0.004, u.x) * step(u.x, 0.996) * step(0.004, u.y) * step(u.y, 0.996); return texture2D(t, clamp(u, 0.0, 1.0)).rgb; }',
+    'vec2 bp = vec2(vWP.x, -vWP.z); float m; vec3 gc = lay(tFar, eFar, bp, m); vec3 c2 = lay(tCity, eCity, bp, m); gc = mix(gc, c2, m); c2 = lay(tNear, eNear, bp, m); gc = mix(gc, c2, m); c2 = lay(tAris, eAris, bp, m); gc = mix(gc, c2, m); diffuseColor.rgb = gc;',
+    { tAris: { value: st('aris') }, eAris: { value: ext('aris') }, tNear: { value: st('near') }, tCity: { value: st('city') }, tFar: { value: st('far') }, eNear: { value: ext('near') }, eCity: { value: ext('city') }, eFar: { value: ext('far') } });
 
   // apartment walls: windows, balcony doors and shops drawn from the wall coordinates (metres along the wall, metres up)
   const wall = withWorld(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }),
@@ -109,14 +109,16 @@ async function main() {
     asphalt: fade(pbr('asphalt', 0.2, rgb(0.75, 0.75, 0.78))), prom: fade(img('agg_beige', 0.25)), grey: fade(img('agg_grey', 0.25)),
     mark: fade(new THREE.MeshStandardMaterial({ color: 0xe9e9e2, roughness: 0.7 })), walk: fade(pbr('prom', 0.5, rgb(1.3, 1.3, 1.27))),
     terra: fade(img('pav_terra', 0.5)), dirt: fade(new THREE.MeshStandardMaterial({ color: 0x8f8a7e, roughness: 1 })), matte: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }), marble: new THREE.MeshStandardMaterial({ color: 0xdcdcd6, roughness: 0.6 }), stele: new THREE.MeshStandardMaterial({ color: 0xb09880, roughness: 0.95 }),
+    apave: img('agg_grey', 0.25), aband: new THREE.MeshStandardMaterial({ color: 0x6f6d69, roughness: 0.9 }), agrass: pbr('grass', 0.28, rgb(0.75, 1.15, 0.5)), aasph: pbr('asphalt', 0.2, rgb(0.75, 0.75, 0.78)),
     kerb: new THREE.MeshStandardMaterial({ color: 0x9d988c, roughness: 0.9 }), lamp: new THREE.MeshStandardMaterial({ color: 0x0c1f18, roughness: 0.5, metalness: 0.5 }),
     glow: new THREE.MeshStandardMaterial({ color: 0xfff3d6, emissive: 0xffe6b0, emissiveIntensity: 0.6 }),
     car: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.28, metalness: 0.45 }), carglass: new THREE.MeshStandardMaterial({ color: 0x06080a, roughness: 0.12 }),
     bark: new THREE.MeshStandardMaterial({ color: 0x4a3526, roughness: 0.95, side: THREE.DoubleSide }),
   };
   for (const k of ['stone', 'brick', 'cap', 'dark', 'pave', 'metal', 'wall', 'roof', 'glass', 'quay', 'kerb', 'lamp', 'car', 'carglass']) M[k].side = THREE.DoubleSide;   // some faces wind inward
+  for (const k of ['apave', 'agrass', 'aasph']) { M[k].polygonOffset = true; M[k].polygonOffsetFactor = -2; M[k].polygonOffsetUnits = -2; } M.aband.polygonOffset = true; M.aband.polygonOffsetFactor = -5; M.aband.polygonOffsetUnits = -5; M.apave.color = new THREE.Color(1.2, 1.18, 1.14);
   M.mark.polygonOffsetFactor = -6; M.mark.polygonOffsetUnits = -6; M.walk.polygonOffsetFactor = -3; M.walk.polygonOffsetUnits = -3;
-  const noShadow = new Set(['ground', 'grass', 'paving', 'cobble', 'asphalt', 'prom', 'glow', 'mark', 'walk', 'terra', 'dirt', 'grey']);
+  const noShadow = new Set(['ground', 'grass', 'paving', 'cobble', 'asphalt', 'prom', 'glow', 'mark', 'walk', 'terra', 'dirt', 'grey', 'apave', 'aband', 'agrass', 'aasph']);
   let done = 0; const total = man.meshes.length + 2; const tick = () => { fill.style.width = (100 * ++done / total) + '%'; };
   await Promise.all(man.meshes.map(async (r) => {
     const buf = await (await fetch(r.file)).arrayBuffer(); let o = 0; const g = new THREE.BufferGeometry();
@@ -168,7 +170,7 @@ async function main() {
   const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.dampingFactor = 0.07;
   controls.maxPolarAngle = Math.PI * 0.492; controls.minDistance = 18; controls.maxDistance = 3200; controls.autoRotateSpeed = 0.7;
   const V = (p, t) => ({ pos: B(p[0], p[1], p[2]).add(TW), tgt: B(t[0], t[1], t[2]).add(TW) });
-  const views = { 'Από τη θάλασσα': V([-185, -75, 82], [8, 12, 6]), 'Drone': V([95, -150, 62], [-12, 25, 10]), 'Πλατεία': V([-50, -34, 1.7], [0, 0, 15]), 'Στέψη': V([-30, -18, 37], [0, 0, 27]), 'Λεωφόρος Νίκης': V([-150, 20, 45], [-40, 150, 12]), 'Πόλη': V([-900, -1000, 650], [100, 150, 0]) };
+  const views = { 'Από τη θάλασσα': V([-185, -75, 82], [8, 12, 6]), 'Drone': V([95, -150, 62], [-12, 25, 10]), 'Πλατεία': V([-50, -34, 1.7], [0, 0, 15]), 'Στέψη': V([-30, -18, 37], [0, 0, 27]), 'Λεωφόρος Νίκης': V([-150, 20, 45], [-40, 150, 12]), 'Αριστοτέλους': V([-726.0, 502.6, 120], [-621.9, 681.0, 5]), 'Στοές': V([-660.0, 640.8, 1.7], [-588.7, 724.8, 15]), 'Πόλη': V([-900, -1000, 650], [100, 150, 0]) };
   let fly = null; const go = (v, ms = 1800) => { fly = { p0: camera.position.clone(), t0: controls.target.clone(), v, s: performance.now(), ms }; };
   const bar = document.getElementById('bar');
   for (const [name, v] of Object.entries(views)) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => go(v); bar.appendChild(b); }

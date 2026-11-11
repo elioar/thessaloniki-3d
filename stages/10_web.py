@@ -15,10 +15,10 @@ def export(name, src, mats, offset=None, drop=()):
         tt = t[m == mi]
         if not len(tt): continue
         used, inv = np.unique(tt, return_inverse=True); idx = inv.reshape(-1, 3).astype(np.uint32); p = v[used]
-        pos = np.c_[p[:, 0], p[:, 2], -p[:, 1]].astype(np.float32); parts = [pos.tobytes()]; rec = {"name": f"{name}_{mname}", "material": mname, "verts": len(used), "tris": len(idx)}
+        pos = np.c_[p[:, 0], p[:, 2], -p[:, 1]].astype(np.float32); parts = [pos.tobytes()]; rec = {"name": f"{name}_{mname}_{mi}", "material": mname, "verts": len(used), "tris": len(idx)}
         if want_uv: parts.append(d["uv"][used].astype(np.float32).tobytes()); rec["uv"] = True
         if want_col: parts.append(np.c_[np.clip(d["col"][used], 0, 1) * 255, np.full(len(used), 255)].astype(np.uint8).tobytes()); rec["color"] = True
-        parts.append(idx.tobytes()); f = f"data/{name}_{mname}.bin"; open(f"{out}/{f}", "wb").write(b"".join(parts)); rec["file"] = f; man["meshes"].append(rec)
+        parts.append(idx.tobytes()); f = f"data/{name}_{mname}_{mi}.bin"; open(f"{out}/{f}", "wb").write(b"".join(parts)); rec["file"] = f; man["meshes"].append(rec)
         print(rec["name"], rec["verts"], rec["tris"], round(os.path.getsize(f"{out}/{f}") / 1e6, 2), "MB")
 export("ground", "ground", {0: ("ground", False, False)})
 export("quay", "quay", {0: ("quay", False, False)})
@@ -26,11 +26,12 @@ export("bld", "buildings", {0: ("wall", True, True), 1: ("roof", False, True), 2
 export("tower", "tower", {0: ("stone", True, False), 1: ("dark", False, False), 2: ("pave", False, False), 3: ("white", False, False), 4: ("blue", False, False), 5: ("metal", False, False), 6: ("brick", True, False), 7: ("cap", False, False)}, offset=T)
 export("site", "site", {0: ("grass", True, False), 1: ("paving", True, False), 2: ("cobble", True, False), 3: ("asphalt", True, False), 4: ("kerb", False, False), 5: ("prom", True, False),
                         6: ("lamp", False, False), 7: ("glow", False, False), 8: ("car", False, True), 9: ("carglass", False, False), 10: ("bark", False, False), 12: ("mark", False, False), 13: ("walk", True, False), 14: ("terra", True, False), 15: ("marble", False, False), 16: ("dirt", False, False), 17: ("stele", False, False), 18: ("grey", True, False), 19: ("matte", False, True)}, drop=(11,))
+export("aris", "aris", {0: ("apave", True, False), 1: ("aband", False, False), 2: ("agrass", True, False), 3: ("marble", False, False), 4: ("matte", False, True), 5: ("matte", False, True), 6: ("bark", False, False), 7: ("lamp", False, False), 8: ("glow", False, False), 9: ("aasph", True, False)})
 W = json.load(open(f"{root}/data/web_trees.json"))
 np.array(W["trees"], np.float32).tofile(f"{out}/data/trees.bin"); np.array(W["clumps"], np.float32).tofile(f"{out}/data/clumps.bin")
 man["trees"] = {"file": "data/trees.bin", "count": len(W["trees"]), "stride": 8}; man["clumps"] = {"file": "data/clumps.bin", "count": len(W["clumps"]), "stride": 8}
 img = json.load(open(f"{root}/data/imagery.json")); man["sat"] = {}
-for key, size in (("near", 4096), ("city", 2048), ("far", 2048)):
+for key, size in (("near", 4096), ("city", 2048), ("far", 2048), ("aris", 2048)):
     im = Image.open(f"{root}/{img[key]['file']}").convert("RGB").resize((size, size), Image.LANCZOS); im.save(f"{out}/tex/sat_{key}.jpg", quality=84); man["sat"][key] = {"file": f"tex/sat_{key}.jpg", "extent": img[key]["extent"]}
 A = json.load(open(f"{root}/data/assets/assets.json"))
 for key in ("stone", "brick", "paving", "prom", "cobble", "grass", "asphalt"):

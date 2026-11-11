@@ -68,13 +68,13 @@ def clay():
 def m_ground():
     m, nt, b = mat("ground"); img = json.load(open(f"{root}/data/imagery.json"))
     xyz = N(nt, "ShaderNodeSeparateXYZ"); nt.links.new(N(nt, "ShaderNodeNewGeometry").outputs["Position"], xyz.inputs[0]); col = None
-    for key in ("far", "city", "near"):
+    for key in ("far", "city", "near", "aris"):
         e = img[key]["extent"]; u = M(nt, "DIVIDE", M(nt, "SUBTRACT", xyz.outputs[0], e[0]), e[2] - e[0]); v = M(nt, "DIVIDE", M(nt, "SUBTRACT", xyz.outputs[1], e[1]), e[3] - e[1])
         cmb = N(nt, "ShaderNodeCombineXYZ"); nt.links.new(u, cmb.inputs[0]); nt.links.new(v, cmb.inputs[1])
         t = N(nt, "ShaderNodeTexImage", extension="EXTEND"); t.image = bpy.data.images.load(f"{root}/{img[key]['file']}"); nt.links.new(cmb.outputs[0], t.inputs[0])
         if col is None: col = t.outputs[0]
         else:
-            k = 0.01 if key == "near" else 0.002
+            k = 0.01 if key in ("near", "aris") else 0.002
             col = mix(nt, M(nt, "MULTIPLY", band(nt, u, k, 1 - k), band(nt, v, k, 1 - k)), col, t.outputs[0])
     nt.links.new(col, b.inputs["Base Color"]); b.inputs["Roughness"].default_value = 0.85; return m
 def m_wall(windows=True):
@@ -138,7 +138,7 @@ def m_cap():
     m, nt, b = mat("tower_cap"); nz = N(nt, "ShaderNodeTexNoise"); nz.inputs["Scale"].default_value = 1.6; nz.inputs["Detail"].default_value = 7
     nt.links.new(N(nt, "ShaderNodeNewGeometry").outputs["Position"], nz.inputs["Vector"])
     nt.links.new(mix(nt, M(nt, "MULTIPLY", M(nt, "SUBTRACT", nz.outputs[0], 0.42), 2.6), (0.60, 0.55, 0.46), (0.62, 0.50, 0.13)), b.inputs["Base Color"]); b.inputs["Roughness"].default_value = 0.9; return m
-def m_site(name, kind, site):
+def m_site(name, kind, site, fade_at=(205, 255)):
     """surfaces around the tower; they fade out to the satellite photo at the edge of the site."""
     m, nt, b = mat(name); pos = N(nt, "ShaderNodeNewGeometry").outputs["Position"]; b.inputs["Roughness"].default_value = 0.9
     def noise(scale, detail=4):
@@ -157,6 +157,8 @@ def m_site(name, kind, site):
     elif kind == "asphalt": c = pbr(nt, b, "asphalt", pos, 0.2); c = mul(nt, c, mix(nt, noise(0.1, 4), (0.55, 0.55, 0.57), (0.95, 0.95, 0.95)))
     elif kind == "walk": c = pbr(nt, b, "prom", pos, 0.5); c = mix(nt, 0.3, c, (0.60, 0.60, 0.58))
     elif kind == "mark": c = (0.82, 0.82, 0.78)
+    elif kind == "apave": c = mul(nt, pbr(nt, b, "agg_grey", pos, 0.25), mix(nt, noise(0.05, 4), (1.0, 1.0, 1.0), (1.22, 1.20, 1.16)))
+    elif kind == "aband": c = mul(nt, pbr(nt, b, "agg_grey", pos, 0.25), (0.55, 0.53, 0.52))
     elif kind == "terra": c = mul(nt, pbr(nt, b, "pav_terra", pos, 0.5), mix(nt, noise(0.07, 4), (0.84, 0.84, 0.86), (1.06, 1.03, 1.0)))
     elif kind == "dirt": c = mix(nt, noise(6.0, 3), (0.36, 0.34, 0.30), (0.56, 0.53, 0.47))
     else: c = (0.58, 0.55, 0.50)
@@ -165,7 +167,7 @@ def m_site(name, kind, site):
     sep = N(nt, "ShaderNodeSeparateXYZ"); nt.links.new(pos, sep.inputs[0])
     dx = M(nt, "SUBTRACT", sep.outputs[0], site["x"]); dy = M(nt, "SUBTRACT", sep.outputs[1], site["y"])
     d = M(nt, "SQRT", M(nt, "ADD", M(nt, "MULTIPLY", dx, dx), M(nt, "MULTIPLY", dy, dy)))
-    fade = N(nt, "ShaderNodeMapRange"); fade.inputs[1].default_value = 205; fade.inputs[2].default_value = 255; nt.links.new(d, fade.inputs[0])
+    fade = N(nt, "ShaderNodeMapRange"); fade.inputs[1].default_value = fade_at[0]; fade.inputs[2].default_value = fade_at[1]; nt.links.new(d, fade.inputs[0])
     ms = N(nt, "ShaderNodeMixShader"); tr = N(nt, "ShaderNodeBsdfTransparent"); out = next(n for n in nt.nodes if n.type == "OUTPUT_MATERIAL")
     nt.links.new(fade.outputs[0], ms.inputs[0]); nt.links.new(b.outputs[0], ms.inputs[1]); nt.links.new(tr.outputs[0], ms.inputs[2]); nt.links.new(ms.outputs[0], out.inputs[0]); return m
 def m_glow():
@@ -207,6 +209,10 @@ else:
 tw = load("tower"); tw.location = TP
 setm(tw, [m_stone(), m_plain("dark", (0.012, 0.012, 0.014), 0.6), m_plain("pave", (0.50, 0.46, 0.40), 0.9), m_plain("flag_white", (0.9, 0.9, 0.9), 0.7),
           m_plain("flag_blue", (0.02, 0.16, 0.55), 0.7), m_plain("metal", (0.12, 0.12, 0.12), 0.5, 1.0), m_brick(), m_cap()])
+if not ONLY_TOWER:
+    asite = json.load(open(f"{root}/data/aris_site.json")); NF = (1e6, 2e6)
+    setm(load("aris"), [m_site("aris_pave", "apave", asite, NF), m_site("aris_band", "aband", asite, NF), m_site("aris_grass", "grass", asite, NF), m_plain("aris_marble", (0.80, 0.80, 0.78), 0.5),
+         m_plain("aris_matte", (0.5, 0.5, 0.5), 0.8, attr=True), m_leaf("aris_leaf"), m_plain("aris_bark", (0.19, 0.13, 0.09), 0.9), m_plain("aris_lamp", (0.03, 0.07, 0.05), 0.5, 0.6), m_glow(), m_site("aris_asphalt", "asphalt", asite, NF)])
 # lettering on buildings
 import os as _os
 from mathutils import Matrix
@@ -227,7 +233,7 @@ wn.links.new(tcw.outputs["Generated"], mpw.inputs[0]); wn.links.new(mpw.outputs[
 skytype = "HDRI"; sc.view_layers[0].use_pass_mist = True; w.mist_settings.start = 0; w.mist_settings.depth = 30000; w.mist_settings.falloff = "LINEAR"
 # cameras
 CAMDEF = {"aerial": ((-430, -360, 250), (40, 60, 5), 35), "tower": ((-66, -58, 24), (0, 0, 16), 32), "city": ((-1500, -1700, 1150), (150, 250, 0), 32),
-          "tower_ne": ((62, 48, 30), (0, 0, 16), 32), "ref5": ((92, 70, 40), (2, 0, 17), 50), "ref1": ((27, 31, 1.7), (0, 0, 19), 22), "crown": ((-30, -18, 37), (0, 0, 27), 35), "earth": ((-185, -75, 82), (8, 12, 6), 32), "park": ((-78, -96, 58), (6, -10, 2), 30), "strip": ((-40, -150, 70), (20, -60, 0), 30), "stelae": ((-20, -118, 1.7), (22, -55, 3), 22), "slabs": ((-62, -52, 1.7), (-5, -10, 8), 22), "floor": ((-48, -62, 1.7), (30, -40, 0.5), 20), "pines": ((-46, -30, 1.7), (0, 0, 13), 20), "front": ((48, 12, 1.7), (125, 34, 11), 22), "planters": ((-34, -108, 1.7), (-2, -20, 12), 24), "drone": ((95, -150, 62), (-12, 25, 10), 26), "plaza": ((-50, -34, 1.7), (0, 0, 15), 20), "theatre": ((35, -22, 26), (118, 30, 11), 28), "nikis": ((-150, 20, 45), (-40, 150, 12), 30), "suntest": ((0, -1, 170), (0, 0, 0), 28), "top": ((0, -1, 2600), (0, 0, 0), 28), "waterfront": ((-260, 150, 60), (-10, -10, 12), 40)}
+          "tower_ne": ((62, 48, 30), (0, 0, 16), 32), "ref5": ((92, 70, 40), (2, 0, 17), 50), "ref1": ((27, 31, 1.7), (0, 0, 19), 22), "crown": ((-30, -18, 37), (0, 0, 27), 35), "earth": ((-185, -75, 82), (8, 12, 6), 32), "park": ((-78, -96, 58), (6, -10, 2), 30), "strip": ((-40, -150, 70), (20, -60, 0), 30), "stelae": ((-20, -118, 1.7), (22, -55, 3), 22), "slabs": ((-62, -52, 1.7), (-5, -10, 8), 22), "floor": ((-48, -62, 1.7), (30, -40, 0.5), 20), "pines": ((-46, -30, 1.7), (0, 0, 13), 20), "front": ((48, 12, 1.7), (125, 34, 11), 22), "planters": ((-34, -108, 1.7), (-2, -20, 12), 24), "drone": ((95, -150, 62), (-12, 25, 10), 26), "plaza": ((-50, -34, 1.7), (0, 0, 15), 20), "theatre": ((35, -22, 26), (118, 30, 11), 28), "nikis": ((-150, 20, 45), (-40, 150, 12), 30), "suntest": ((0, -1, 170), (0, 0, 0), 28), "aris_air": ((-726.0, 502.6, 120), (-621.9, 681.0, 5), 30), "aris_eye": ((-660.0, 640.8, 1.7), (-588.7, 724.8, 15), 20), "aris_arcade": ((-665.3, 680.0, 1.7), (-650.3, 721.4, 7), 22), "aris_top": ((-694.4, 767.4, 95), (-606.8, 700.9, 0), 30), "top": ((0, -1, 2600), (0, 0, 0), 28), "waterfront": ((-260, 150, 60), (-10, -10, 12), 40)}
 for name, (pos, tgt, lens) in CAMDEF.items():
     cd = bpy.data.cameras.new(name); cd.lens = lens; cd.clip_end = 80000; cd.clip_start = 0.5
     cam = bpy.data.objects.new("cam_" + name, cd); sc.collection.objects.link(cam)
