@@ -39,5 +39,6 @@ def layer(name, z, w, s, e, n, maxpx=8192):
 r = 520
 out = {"near": layer("near", 19, a["lon"] - r / kx, a["lat"] - r / ky, a["lon"] + r / kx, a["lat"] + r / ky),
        "city": layer("city", 17, b["west"], b["south"], b["east"], b["north"]),
+       "aris": layer("aris", 19, 22.9409 - 230 / kx, 40.6325 - 290 / ky, 22.9409 + 230 / kx, 40.6325 + 290 / ky),   # Aristotelous Square, sharp
        "far": layer("far", 13, a["lon"] - 26000 / kx, a["lat"] - 26000 / ky, a["lon"] + 26000 / kx, a["lat"] + 26000 / ky)}
 json.dump(out, open(f"{root}/data/imagery.json", "w"), indent=1)
