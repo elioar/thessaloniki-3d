@@ -5,7 +5,7 @@ from mathutils import Vector
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
 def arg(k, d): return argv[argv.index(k) + 1] if k in argv else d
-CAMS = arg("--cams", "aerial").split(","); RESX = int(arg("--resx", "1280")); SAMPLES = int(arg("--samples", "32")); CLAY = "--clay" in argv
+CAMS = [c for c in arg("--cams", "aerial").split(",") if c and c != "none"]; RESX = int(arg("--resx", "1280")); SAMPLES = int(arg("--samples", "32")); CLAY = "--clay" in argv
 ONLY_TOWER = "--only-tower" in argv
 bpy.ops.wm.read_factory_settings(use_empty=True); sc = bpy.context.scene
 # ---------------- helpers ----------------
@@ -224,7 +224,13 @@ sc.render.resolution_x = RESX; sc.render.resolution_y = int(RESX * 9 / 16); sc.r
 try: sc.view_settings.view_transform = "AgX"; sc.view_settings.look = "AgX - Medium High Contrast"
 except TypeError: pass
 sc.view_settings.exposure = float(arg("--exposure", "0")); sc.render.image_settings.file_format = "PNG"
-if "--save" in argv: bpy.ops.wm.save_as_mainfile(filepath=f"{root}/out/thessaloniki.blend")
+if "--save" in argv:
+    if "--pack" in argv:                                   # one self-contained, lighter file to take away
+        for name in ("trees", "ground"):
+            me = bpy.data.objects[name].data
+            while me.uv_layers: me.uv_layers.remove(me.uv_layers[0])
+        bpy.ops.file.pack_all()
+    bpy.ops.wm.save_as_mainfile(filepath=f"{root}/out/{arg('--blend', 'thessaloniki')}.blend", compress="--pack" in argv)
 print("SKY", skytype, "objects", len(sc.objects))
 import OpenImageIO as oiio
 for name in CAMS:

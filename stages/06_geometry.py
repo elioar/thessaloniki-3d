@@ -240,6 +240,7 @@ for ix in range(int((x1 - x0) / STEP)):
         pt = Point(x, y)
         if psea.contains(pt) or pt.distance(tp) < 17 or any(polys[k].distance(pt) < 1.5 for k in btree.query(pt.buffer(2))): continue
         spots.append((x, y))
+LEAF = float(os.environ.get("LEAF", "1"))   # < 1 thins the city trees for a lighter file
 def foliage(mesh, cx, cy, cz, rx, rz, n, size, col, rnd, mat=0):
     """a cloud of small leaf triangles on an ellipsoid shell: gives a ragged, leafy outline instead of a smooth ball."""
     u = np.array([rnd.gauss(0, 1) for _ in range(3 * n)]).reshape(n, 3); u /= np.linalg.norm(u, axis=1)[:, None]
@@ -283,7 +284,7 @@ for (x, y) in spots:
         bx, by, bz = x + rnd.uniform(-1, 1) * r * off, y + rnd.uniform(-1, 1) * r * off, z + hgt * (0.68 if k == 0 else rnd.uniform(0.5, 0.75))
         sh = 0.88 if close else 1.0
         v, t = blob(bx, by, bz, r * kk * sh, hgt * 0.34 * kk * sh, rnd, sg, rg); tm.add(v, t, col=tuple(c * 0.55 for c in gc) if close else gc, mat=0)
-        if close: foliage(tm, bx, by, bz, r * kk, hgt * 0.34 * kk, 420, 0.32, gc, rnd)
+        if close: foliage(tm, bx, by, bz, r * kk, hgt * 0.34 * kk, int(420 * LEAF), 0.32 / LEAF ** 0.5, gc, rnd)
 tm.save("trees"); print("trees", len(spots))
 
 # ================= the tower's surroundings (within 260 m) =================
